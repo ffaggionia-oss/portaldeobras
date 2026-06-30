@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Kokkai — Obras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1c1b19;
+    --panel: #252320;
+    --panel-2: #2e2b27;
+    --line: #3d3933;
+    --paper: #f4efe6;
+    --paper-dim: #c9c2b4;
+    --rust: #c1632f;
+    --rust-bright: #e07a3f;
+    --ok: #7a9b6e;
+    --warn: #d4a843;
+    --danger: #c1493f;
+    --font-display: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+    --font-body: 'IBM Plex Sans', Arial, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--paper);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Top bar ---- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
+    border-bottom: 3px solid var(--rust);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .brand {
+    font-family: var(--font-display);
+    font-size: 28px;
+    letter-spacing: 1px;
+    color: var(--paper);
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .brand .tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--rust-bright);
+    text-transform: uppercase;
+  }
+  .topbar-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--paper-dim);
+    text-align: right;
+    line-height: 1.4;
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+  }
+
+  /* ---- Buttons ---- */
+  button {
+    font-family: var(--font-body);
+    font-weight: 600;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: transform .08s ease, background .15s ease;
+  }
+  button:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--rust);
+    color: var(--paper);
+    padding: 14px 22px;
+    font-size: 15px;
+  }
+  .btn-primary:hover { background: var(--rust-bright); }
+  .btn-secondary {
+    background: transparent;
+    border: 1.5px solid var(--line);
+    color: var(--paper-dim);
+    padding: 12px 18px;
+    font-size: 14px;
+  }
+  .btn-secondary:hover { border-color: var(--paper-dim); color: var(--paper); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--rust-bright);
+    padding: 8px 4px;
+    font-size: 13px;
+    text-decoration: underline;
+  }
+  .btn-block { width: 100%; }
+
+  /* ---- Obra list ---- */
+  .list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .list-header h1 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    margin: 0;
+    letter-spacing: 0.5px;
+  }
+  .obra-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--rust);
+    border-radius: 4px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    gap: 12px;
+  }
+  .obra-card:hover { background: var(--panel-2); }
+  .obra-card .nombre { font-size: 17px; font-weight: 600; }
+  .obra-card .sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--paper-dim); margin-top: 4px; }
+  .estado-pill {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .estado-diagnostico { background: #4a4234; color: var(--warn); }
+  .estado-sistema_definido { background: #3a4456; color: #8aa6d4; }
+  .estado-compras_validadas { background: #3a4a3e; color: var(--ok); }
+  .estado-en_obra { background: #4a3a2a; color: var(--rust-bright); }
+  .estado-cerrada { background: #333; color: #999; }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--paper-dim);
+  }
+  .empty-state .big { font-family: var(--font-display); font-size: 26px; color: var(--paper); margin-bottom: 8px; }
+
+  /* ---- Obra detail / hito tabs ---- */
+  .obra-header {
+    margin-bottom: 18px;
+  }
+  .back-link {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--paper-dim);
+    cursor: pointer;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+  .back-link:hover { color: var(--rust-bright); }
+  .obra-title {
+    font-family: var(--font-display);
+    font-size: 36px;
+    letter-spacing: 0.5px;
+    margin: 0 0 4px;
+  }
+  .hito-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 22px;
+    overflow-x: auto;
+  }
+  .hito-tab {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    padding: 12px 16px;
+    color: var(--paper-dim);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    background: none;
+    border-radius: 0;
+  }
+  .hito-tab.active { color: var(--paper); border-bottom-color: var(--rust); }
+  .hito-tab:hover:not(.active) { color: var(--paper); }
+
+  /* ---- Form building blocks ---- */
+  .section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--rust-bright);
+    margin: 0 0 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 600px) {
+    .field-grid { grid-template-columns: 1fr; }
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  label {
+    font-size: 12.5px;
+    color: var(--paper-dim);
+    font-weight: 600;
+  }
+  input[type=text], input[type=number], input[type=date], textarea, select {
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    border-radius: 4px;
+    color: var(--paper);
+    padding: 10px 12px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    width: 100%;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--rust);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .check-row:last-child { border-bottom: none; }
+  .check-row input[type=checkbox] {
+    width: 22px; height: 22px;
+    margin-top: 2px;
+    accent-color: var(--rust);
+    flex-shrink: 0;
+  }
+  .check-row .check-label { flex: 1; }
+  .check-row .check-text { font-size: 14.5px; line-height: 1.4; }
+  .check-row .check-note { margin-top: 6px; }
+  .check-row .check-note input, .check-row .check-note textarea { font-size: 13.5px; }
+
+  .radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .radio-chip {
+    font-size: 13.5px;
+    padding: 9px 16px;
+    border: 1.5px solid var(--line);
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--paper-dim);
+    user-select: none;
+  }
+  .radio-chip.selected {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: var(--paper);
+  }
+
+  .save-bar {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+    padding: 20px 0 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .save-status {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--paper-dim);
+  }
+  .save-status.ok { color: var(--ok); }
+  .save-status.error { color: var(--danger); }
+
+  /* ---- Modal ---- */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 26px;
+    max-width: 420px;
+    width: 100%;
+  }
+  .modal h2 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    margin: 0 0 16px;
+  }
+
+  /* ---- Tables (H3) ---- */
+  table.calc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.calc-table th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--paper-dim);
+    padding: 8px 6px;
+    border-bottom: 1.5px solid var(--line);
+  }
+  table.calc-table td {
+    padding: 7px 6px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  table.calc-table input[type=number] { padding: 6px 8px; font-size: 13.5px; }
+  table.calc-table input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--rust); }
+  .num { font-family: var(--font-mono); text-align: right; }
+  .total-row td { font-weight: 700; border-top: 2px solid var(--line); background: var(--panel-2); }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .stat-box {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px;
+  }
+  .stat-box .label { font-family: var(--font-mono); font-size: 10.5px; color: var(--paper-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-box .value { font-family: var(--font-mono); font-size: 22px; color: var(--paper); margin-top: 4px; }
+  .stat-box.accent .value { color: var(--rust-bright); }
+
+  .segmento-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .segmento-chip {
+    flex: 1;
+    min-width: 90px;
+    text-align: center;
+    padding: 10px 8px;
+    border: 1.5px solid var(--line);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .segmento-chip .seg-name { font-family: var(--font-mono); font-size: 10px; color: var(--paper-dim); text-transform: uppercase; }
+  .segmento-chip .seg-price { font-size: 15px; font-weight: 700; margin-top: 3px; }
+  .segmento-chip.selected { border-color: var(--rust); background: rgba(193,99,47,0.15); }
+  .segmento-chip.selected .seg-name { color: var(--rust-bright); }
+
+  .subsection-toggle {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .small-note {
+    font-size: 12px;
+    color: var(--paper-dim);
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+
+  .add-row-btn {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--rust-bright);
+    background: none;
+    padding: 8px 0;
+    cursor: pointer;
+  }
+
+  ::placeholder { color: #6b665d; }
+
+  @media print {
+    .topbar, .hito-tabs, .save-bar, .back-link, .btn-ghost { display: none !important; }
+    body { background: white; color: black; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand" onclick="goHome()">KOKKAI <span class="tag">Obras</span></div>
+  <div class="topbar-meta" id="connStatus">conectando...</div>
+</div>
+
+<div class="container" id="app"></div>
+
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script src="h1.js"></script>
+<script src="h2.js"></script>
+<script src="h3.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
