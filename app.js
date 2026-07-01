@@ -190,22 +190,52 @@ async function renderHome() {
         </div>`;
       return;
     }
-    document.getElementById('obrasList').innerHTML = res.obras
-      .sort((a,b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion))
-      .map(o => `
-        <div class="obra-card" onclick="openObra('${o.obraId}')">
-          <div>
-            <div class="nombre">${escapeHtml(o.cliente)}</div>
-            <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}</div>
-            ${renderProgresoDots(o.progreso)}
-          </div>
-          <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
+
+    const activas = res.obras.filter(o => o.estado !== 'cerrada').sort((a, b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion));
+    const archivadas = res.obras.filter(o => o.estado === 'cerrada').sort((a, b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion));
+
+    let html = activas.length === 0
+      ? `<div class="empty-state"><div class="big">No hay obras activas</div><p>Todas las obras están archivadas, o todavía no creaste ninguna.</p></div>`
+      : activas.map(renderObraCard).join('');
+
+    if (archivadas.length > 0) {
+      html += `
+        <div class="archive-toggle" id="archiveToggle" onclick="toggleArchivadas()">
+          <span class="arrow">▸</span> Obras archivadas / terminadas (${archivadas.length})
         </div>
-      `).join('');
+        <div class="archivadas-list" id="archivadasList" style="display:none;">
+          ${archivadas.map(renderObraCard).join('')}
+        </div>
+      `;
+    }
+
+    document.getElementById('obrasList').innerHTML = html;
   } catch (err) {
     document.getElementById('connStatus').textContent = '⚠ error de conexión';
     document.getElementById('obrasList').innerHTML = `<div class="empty-state"><div class="big">No se pudo conectar</div><p>${escapeHtml(err.message)}</p></div>`;
   }
+}
+
+function renderObraCard(o) {
+  return `
+    <div class="obra-card" onclick="openObra('${o.obraId}')">
+      <div>
+        <div class="nombre">${escapeHtml(o.cliente)}</div>
+        <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}</div>
+        ${renderProgresoDots(o.progreso)}
+      </div>
+      <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
+    </div>
+  `;
+}
+
+function toggleArchivadas() {
+  const list = document.getElementById('archivadasList');
+  const toggle = document.getElementById('archiveToggle');
+  if (!list) return;
+  const abierto = list.style.display !== 'none';
+  list.style.display = abierto ? 'none' : 'block';
+  toggle.classList.toggle('open', !abierto);
 }
 
 function hitoCompleto(obra, hito) {
@@ -217,16 +247,46 @@ function hitoCompleto(obra, hito) {
 }
 
 function estadoLabel(e) {
-  return { diagnostico: 'Diagnóstico', sistema_definido: 'Sistema definido', compras_validadas: 'Compras validadas', en_obra: 'En obra', cerrada: 'Cerrada' }[e] || e;
+  return { diagnostico: 'Diagnóstico', sistema_definido: 'Sistema definido', compras_validadas: 'Compras validadas', en_obra: 'En obra', cerrada: 'Terminada' }[e] || e;
 }
 
+// Secuencia de hitos "de progreso" (excluye Fotos, que no es un hito secuencial),
+// filtrada según lo que puede ver el rol actual.
+function pasosProgreso() {
+  return HITO_ORDER.filter(h => h !== 'fotos' && (ROLE_TABS[currentUser.rol] || []).indexOf(h) !== -1);
+}
+
+// Stepper compacto: usado en cada tarjeta de la lista de obras.
 function renderProgresoDots(progreso) {
   if (!progreso) return '';
-  const tabs = (ROLE_TABS[currentUser.rol] || []).filter(h => h !== 'fotos');
+  const tabs = pasosProgreso();
   if (tabs.length === 0) return '';
   const hechos = tabs.filter(h => progreso[h]).length;
-  const dots = tabs.map(h => `<span title="${HITO_LABELS[h]}" style="display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; background:${progreso[h] ? 'var(--ok)' : 'transparent'}; border:1.5px solid ${progreso[h] ? 'var(--ok)' : 'var(--line)'};"></span>`).join('');
-  return `<div class="sub" style="margin-top:6px; display:flex; align-items:center; gap:6px;">${dots}<span style="font-family:var(--font-mono); font-size:10.5px;">${hechos}/${tabs.length}</span></div>`;
+  const parts = tabs.map((h, i) => {
+    const completo = !!progreso[h];
+    const lineCompleta = i > 0 && completo && progreso[tabs[i - 1]];
+    return (i > 0 ? `<span class="sc-line ${lineCompleta ? 'completo' : ''}"></span>` : '') +
+           `<span class="sc-dot ${completo ? 'completo' : ''}" title="${HITO_LABELS[h]}"></span>`;
+  }).join('');
+  return `<div class="stepper-compact">${parts}<span class="sc-count">${hechos}/${tabs.length}</span></div>`;
+}
+
+// Stepper completo: usado arriba de las solapas dentro de una obra.
+function renderStepperCompleto(obra) {
+  const tabs = pasosProgreso();
+  if (tabs.length === 0) return '';
+  return `<div class="stepper">
+    ${tabs.map((h, i) => {
+      const completo = hitoCompleto(obra, h);
+      const activo = currentHito === h;
+      const label = (HITO_LABELS[h] || h).replace(/^H\d+\s*·\s*/, '');
+      return `<div class="stepper-step ${completo ? 'completo' : ''} ${activo ? 'activo' : ''}" onclick="switchHito('${h}')">
+        ${i > 0 ? '<div class="stepper-line"></div>' : ''}
+        <div class="stepper-circle">${completo ? '✓' : (i + 1)}</div>
+        <div class="stepper-label">${escapeHtml(label)}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 function formatDate(iso) {
@@ -299,6 +359,8 @@ function renderObraView() {
       <div class="obra-title">${escapeHtml(o.cliente)}</div>
       <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
     </div>
+    ${o.estado === 'cerrada' ? `<div class="obra-finalizada-banner">✓ Esta obra está marcada como terminada y archivada.</div>` : ''}
+    ${renderStepperCompleto(o)}
     <div class="hito-tabs">
       ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''} ${hitoCompleto(o, h)?'completo':'pendiente'}" onclick="switchHito('${h}')">${HITO_LABELS[h]}</div>`).join('')}
     </div>
@@ -342,6 +404,32 @@ async function saveCurrentHito(manual, hitoOverride) {
     if (res.ok) {
       setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
       if (estado) currentObraData.estado = estado;
+    } else {
+      setSaveStatus('Error al guardar: ' + res.error, 'error');
+    }
+  } catch (err) {
+    setSaveStatus('Error de conexión', 'error');
+  }
+}
+
+// ---- Marcar / desmarcar obra como terminada (archivo) ----
+async function toggleObraFinalizada(checked) {
+  if (!currentObraData) return;
+  if (checked) {
+    if (!confirm('¿Marcar "' + currentObraData.cliente + '" como obra Terminada? Pasará a Obras archivadas en la pantalla principal.')) {
+      const chk = document.getElementById('h5_finalizada');
+      if (chk) chk.checked = false;
+      return;
+    }
+  }
+  setSaveStatus('Guardando...', '');
+  const nuevoEstado = checked ? 'cerrada' : 'en_obra';
+  try {
+    const res = await API.updateEstado(currentObraData.obraId, nuevoEstado, currentUser.token);
+    if (res.ok) {
+      currentObraData.estado = nuevoEstado;
+      renderObraView();
+      setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
     } else {
       setSaveStatus('Error al guardar: ' + res.error, 'error');
     }

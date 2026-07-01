@@ -33,6 +33,17 @@ function renderH5(obra) {
         </tbody>
       </table>`}
     </div>
+
+    <div class="section" style="border-color: ${obra.estado === 'cerrada' ? 'var(--ok)' : 'var(--line)'};">
+      <div class="section-title">Estado final de la obra</div>
+      <div class="check-row">
+        <input type="checkbox" id="h5_finalizada" ${obra.estado === 'cerrada' ? 'checked' : ''} onchange="toggleObraFinalizada(this.checked)">
+        <div class="check-label">
+          <div class="check-text">Marcar esta obra como <strong>Terminada</strong></div>
+          <div class="check-note small-note">Al marcarla, la obra pasa a "Obras archivadas" en la pantalla principal. Se puede desmarcar para reabrirla si hace falta.</div>
+        </div>
+      </div>
+    </div>
   `;
 }
 

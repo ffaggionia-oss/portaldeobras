@@ -215,6 +215,108 @@
   .hito-tab.active.completo { border-bottom-color: var(--ok); }
   .hito-tab.active.pendiente { border-bottom-color: var(--warn); }
 
+  /* ---- Stepper de progreso (obra abierta) ---- */
+  .stepper {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 22px;
+  }
+  .stepper-step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    cursor: pointer;
+  }
+  .stepper-line {
+    position: absolute;
+    top: 16px;
+    left: -50%;
+    width: 100%;
+    height: 2px;
+    background: var(--line);
+    z-index: 1;
+  }
+  .stepper-step.completo .stepper-line { background: var(--ok); }
+  .stepper-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    border: 2px solid var(--line);
+    background: var(--panel);
+    color: var(--paper-dim);
+    position: relative;
+    z-index: 2;
+    transition: all .15s ease;
+  }
+  .stepper-step.completo .stepper-circle { background: var(--ok); border-color: var(--ok); color: var(--bg); }
+  .stepper-step.activo .stepper-circle { border-color: var(--rust); color: var(--paper); box-shadow: 0 0 0 3px rgba(193,99,47,0.25); }
+  .stepper-step.activo.completo .stepper-circle { box-shadow: 0 0 0 3px rgba(122,155,110,0.3); }
+  .stepper-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--paper-dim);
+    margin-top: 6px;
+    text-align: center;
+    line-height: 1.3;
+    padding: 0 2px;
+  }
+  .stepper-step.completo .stepper-label,
+  .stepper-step.activo .stepper-label { color: var(--paper); }
+  .obra-finalizada-banner {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: var(--ok);
+    background: rgba(122,155,110,0.12);
+    border: 1px solid var(--ok);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 18px;
+  }
+
+  /* ---- Stepper compacto (tarjeta de obra en la lista) ---- */
+  .stepper-compact { display: flex; align-items: center; gap: 0; margin-top: 8px; }
+  .stepper-compact .sc-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: transparent; border: 1.5px solid var(--line);
+    flex-shrink: 0;
+  }
+  .stepper-compact .sc-dot.completo { background: var(--ok); border-color: var(--ok); }
+  .stepper-compact .sc-line { width: 12px; height: 1.5px; background: var(--line); flex-shrink: 0; }
+  .stepper-compact .sc-line.completo { background: var(--ok); }
+  .stepper-compact .sc-count { font-family: var(--font-mono); font-size: 10.5px; color: var(--paper-dim); margin-left: 8px; }
+
+  /* ---- Obras archivadas ---- */
+  .archive-toggle {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing: 0.5px;
+    color: var(--paper-dim);
+    cursor: pointer;
+    padding: 14px 0 10px;
+    margin-top: 10px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+  }
+  .archive-toggle:hover { color: var(--paper); }
+  .archive-toggle .arrow { transition: transform .15s ease; display: inline-block; }
+  .archive-toggle.open .arrow { transform: rotate(90deg); }
+  .archivadas-list .obra-card { opacity: 0.78; }
+  .archivadas-list .obra-card:hover { opacity: 1; }
+
   /* ---- Form building blocks ---- */
   .section {
     background: var(--panel);
