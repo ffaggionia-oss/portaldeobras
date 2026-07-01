@@ -56,6 +56,19 @@ const API = {
       body: JSON.stringify({ action: 'deleteFile', obraId, hito, url, token })
     });
     return res.json();
+  },
+
+  async logAccion(obraId, hito, accion, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'logAccion', obraId, hito, accion, token })
+    });
+    return res.json();
+  },
+
+  async getLogs(obraId, hito, token) {
+    const res = await fetch(`${CONFIG.API_URL}?action=logs&obraId=${encodeURIComponent(obraId)}&hito=${encodeURIComponent(hito)}&token=${encodeURIComponent(token)}`);
+    return res.json();
   }
 };
 

@@ -96,6 +96,9 @@ function renderLogin(errorMsg) {
         ${errorMsg ? `<div class="small-note" style="color:var(--danger); margin-top:8px;">${escapeHtml(errorMsg)}</div>` : ''}
         <button class="btn-primary btn-block" style="margin-top:14px;" onclick="intentarLogin()">Entrar</button>
       </div>
+      <div style="text-align:center; margin-top:16px;">
+        <span class="btn-ghost" onclick="renderCalculadoraPublica()">🧮 Calculadora de colocadores (sin código de acceso)</span>
+      </div>
     </div>
   `;
   const input = document.getElementById('loginTokenInput');
@@ -363,12 +366,19 @@ function renderObraView() {
       ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''} ${hitoCompleto(o, h)?'completo':'pendiente'}" onclick="switchHito('${h}')">${HITO_LABELS[h]}</div>`).join('')}
     </div>
     <div id="hito-content"></div>
+    <div class="section no-print">
+      <div class="section-title">Imprimir / Historial de esta solapa</div>
+      <button type="button" class="btn-secondary" onclick="imprimirHitoActual()">🖨 Imprimir / Guardar como PDF</button>
+      <div class="small-note" style="margin-top:12px;">Últimas impresiones o descargas de <strong>${escapeHtml(HITO_LABELS[currentHito] || currentHito)}</strong>:</div>
+      <div id="logPanelList" class="small-note" style="margin-top:6px;">Cargando...</div>
+    </div>
     <div class="save-bar">
       <div class="save-status" id="saveStatus"></div>
       ${(currentHito!=='h4' && currentHito!=='h5' && currentHito!=='fotos') ? `<button class="btn-primary" onclick="saveCurrentHito(true)">Guardar ahora</button>` : ''}
     </div>
   `;
   renderCurrentHito();
+  cargarLogsHito(currentHito);
 }
 
 async function switchHito(hito) {
@@ -433,6 +443,33 @@ async function toggleObraFinalizada(checked) {
     }
   } catch (err) {
     setSaveStatus('Error de conexión', 'error');
+  }
+}
+
+// ---- Imprimir / Historial por solapa ----
+async function imprimirHitoActual() {
+  if (!currentObraData) return;
+  try {
+    await API.logAccion(currentObraData.obraId, currentHito, 'imprimir', currentUser.token);
+  } catch (err) { /* si falla el log, igual dejamos imprimir */ }
+  window.print();
+  cargarLogsHito(currentHito);
+}
+
+async function cargarLogsHito(hito) {
+  const el = document.getElementById('logPanelList');
+  if (!el || !currentObraData) return;
+  el.textContent = 'Cargando...';
+  try {
+    const res = await API.getLogs(currentObraData.obraId, hito, currentUser.token);
+    if (!res.ok) { el.textContent = 'No se pudo cargar el historial.'; return; }
+    if (!res.logs || res.logs.length === 0) {
+      el.innerHTML = 'Todavía no hay impresiones registradas para esta solapa.';
+      return;
+    }
+    el.innerHTML = res.logs.map(l => `<div>${escapeHtml(l.usuario)} · ${formatDate(l.fecha)}</div>`).join('');
+  } catch (err) {
+    el.textContent = 'Error de conexión al cargar el historial.';
   }
 }
 

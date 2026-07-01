@@ -22,6 +22,7 @@
 
 const SHEET_NAME = 'Obras';
 const USERS_SHEET_NAME = 'Usuarios';
+const LOGS_SHEET_NAME = 'Logs';
 const HEADERS = ['obraId', 'cliente', 'estado', 'fechaCreacion', 'fechaActualizacion', 'h1_json', 'h2_json', 'h3_json', 'h4_json', 'h5_json', 'fotos_json'];
 const COL = { obraId:1, cliente:2, estado:3, fechaCreacion:4, fechaActualizacion:5, h1:6, h2:7, h3:8, h4:9, h5:10, fotos:11 };
 const DRIVE_ROOT_FOLDER_NAME = 'Kokkai Obras - Archivos';
@@ -35,7 +36,8 @@ const H3_TIPOS_COLOCACION = [
   { tipo:'Colocación de Decks + Estructura Galv./Madera', costoMt2:37.5 },
   { tipo:'Remoción Piso Existente', costoMt2:9.09 },
   { tipo:'Colocación Piso Pegado + Zócalos', costoMt2:16 },
-  { tipo:'Colocación Piso Flotante + Zócalos', costoMt2:14 }
+  { tipo:'Colocación Piso Flotante + Zócalos', costoMt2:13.99906673 },
+  { tipo:'Remoción Deck Existente', costoMt2:5 }
 ];
 
 const H3_SEGMENTOS = [
@@ -99,6 +101,18 @@ function getUsuario_(token) {
     }
   }
   return null;
+}
+
+// ---- Logs de impresión / descarga por obra + hito ----
+function getLogsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(LOGS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(LOGS_SHEET_NAME);
+    sheet.appendRow(['obraId', 'hito', 'accion', 'usuario', 'fecha']);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
 }
 
 function jsonResponse_(obj) {
@@ -268,6 +282,19 @@ function doGet(e) {
       return jsonResponse_({ ok: true, obra, rol: user.rol, nombre: user.nombre });
     }
 
+    if (action === 'logs') {
+      const hito = e.parameter.hito;
+      if (!puedeVer_(user.rol, hito)) return jsonResponse_({ ok: false, error: 'Tu rol no tiene acceso a ' + hito });
+      const logsSheet = getLogsSheet_();
+      const data = logsSheet.getDataRange().getValues();
+      const logs = data.slice(1)
+        .filter(r => r[0] === e.parameter.obraId && r[1] === hito)
+        .sort((a, b) => new Date(b[4]) - new Date(a[4]))
+        .slice(0, 5)
+        .map(r => ({ accion: r[2], usuario: r[3], fecha: r[4] }));
+      return jsonResponse_({ ok: true, logs });
+    }
+
     return jsonResponse_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
     return jsonResponse_({ ok: false, error: err.toString() });
@@ -358,6 +385,14 @@ function doPost(e) {
         const id = extractDriveId_(body.url);
         if (id) DriveApp.getFileById(id).setTrashed(true);
       } catch (errTrash) { /* si falla el borrado en Drive, igual sacamos la referencia */ }
+      return jsonResponse_({ ok: true });
+    }
+
+    if (action === 'logAccion') {
+      const hito = body.hito;
+      if (!puedeVer_(user.rol, hito)) return jsonResponse_({ ok: false, error: 'Tu rol no tiene acceso a ' + hito });
+      const logsSheet = getLogsSheet_();
+      logsSheet.appendRow([body.obraId, hito, body.accion || 'imprimir', user.nombre, new Date().toISOString()]);
       return jsonResponse_({ ok: true });
     }
 

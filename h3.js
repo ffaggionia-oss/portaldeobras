@@ -43,7 +43,8 @@ const H3_TIPOS_COLOCACION = [
   {tipo:'Colocación de Decks + Estructura Galv./Madera', rendimiento:8, costoMt2:37.5},
   {tipo:'Remoción Piso Existente', rendimiento:33, costoMt2:9.09},
   {tipo:'Colocación Piso Pegado + Zócalos', rendimiento:18.75, costoMt2:16},
-  {tipo:'Colocación Piso Flotante + Zócalos', rendimiento:21.43, costoMt2:14},
+  {tipo:'Colocación Piso Flotante + Zócalos', rendimiento:21.43, costoMt2:13.99906673},
+  {tipo:'Remoción Deck Existente', rendimiento:60, costoMt2:5}
 ];
 
 const H3_ESCALADORES_DEFAULT = [
