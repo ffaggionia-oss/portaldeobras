@@ -202,13 +202,29 @@ async function renderHome() {
       : activas.map(renderObraCard).join('');
 
     html += `
-      <div class="archive-toggle" id="archiveToggle" onclick="toggleArchivadas()">
+      <div class="archive-toggle" id="archiveToggle" onclick="toggleColapsable('archivadasList','archiveToggle')">
         <span class="arrow">▸</span> Obras archivadas / terminadas (${archivadas.length})
       </div>
       <div class="archivadas-list" id="archivadasList" style="display:none;">
         ${archivadas.length === 0 ? '<div class="small-note" style="padding:10px 0;">Todavía no hay obras marcadas como terminadas. Se marcan desde la solapa H5 dentro de cada obra.</div>' : archivadas.map(renderObraCard).join('')}
       </div>
     `;
+
+    if (currentUser.rol !== 'colocador') {
+      let eliminadas = [];
+      try {
+        const resDel = await API.listEliminadas(currentUser.token);
+        if (resDel.ok) eliminadas = resDel.obras.sort((a, b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion));
+      } catch (e) { /* si falla, mostramos la sección vacía */ }
+      html += `
+        <div class="archive-toggle" id="trashToggle" onclick="toggleColapsable('trashList','trashToggle')">
+          <span class="arrow">▸</span> 🗑 Obras eliminadas (${eliminadas.length})
+        </div>
+        <div class="archivadas-list" id="trashList" style="display:none;">
+          ${eliminadas.length === 0 ? '<div class="small-note" style="padding:10px 0;">No hay obras eliminadas.</div>' : eliminadas.map(renderObraEliminadaCard).join('')}
+        </div>
+      `;
+    }
 
     document.getElementById('obrasList').innerHTML = html;
   } catch (err) {
@@ -221,7 +237,7 @@ function renderObraCard(o) {
   return `
     <div class="obra-card" onclick="openObra('${o.obraId}')">
       <div>
-        <div class="nombre">${escapeHtml(o.cliente)}</div>
+        <div class="nombre">${escapeHtml(o.cliente)} ${o.codigo ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--paper-dim);">· ${escapeHtml(o.codigo)}</span>` : ''}</div>
         <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}</div>
         ${renderProgresoDots(o.progreso)}
       </div>
@@ -230,9 +246,24 @@ function renderObraCard(o) {
   `;
 }
 
-function toggleArchivadas() {
-  const list = document.getElementById('archivadasList');
-  const toggle = document.getElementById('archiveToggle');
+function renderObraEliminadaCard(o) {
+  return `
+    <div class="obra-card" style="cursor:default;">
+      <div>
+        <div class="nombre">${escapeHtml(o.cliente)} ${o.codigo ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--paper-dim);">· ${escapeHtml(o.codigo)}</span>` : ''}</div>
+        <div class="sub">Eliminada · actualizado ${formatDate(o.fechaActualizacion)}</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="btn-secondary" onclick="restaurarObraId('${o.obraId}','${escapeAttr(o.cliente)}')">Restaurar</button>
+        ${currentUser.rol === 'gerencia' ? `<button type="button" class="btn-primary" style="background:var(--danger);" onclick="eliminarPermanenteObraId('${o.obraId}','${escapeAttr(o.cliente)}')">Eliminar definitivamente</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function toggleColapsable(listId, toggleId) {
+  const list = document.getElementById(listId);
+  const toggle = document.getElementById(toggleId);
   if (!list) return;
   const abierto = list.style.display !== 'none';
   list.style.display = abierto ? 'none' : 'block';
@@ -358,7 +389,11 @@ function renderObraView() {
     <div class="obra-header">
       <div class="back-link" onclick="goHome()">← Volver a obras</div>
       <div class="obra-title">${escapeHtml(o.cliente)}</div>
-      <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:2px;">
+        <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
+        ${o.codigo ? `<span class="sub" style="font-family:var(--font-mono);">${escapeHtml(o.codigo)}</span>` : ''}
+        ${currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="eliminarObraActual()">🗑 Eliminar obra</span>` : ''}
+      </div>
     </div>
     ${o.estado === 'cerrada' ? `<div class="obra-finalizada-banner">✓ Esta obra está marcada como terminada y archivada.</div>` : ''}
     ${renderStepperCompleto(o)}
@@ -470,6 +505,39 @@ async function cargarLogsHito(hito) {
     el.innerHTML = res.logs.map(l => `<div>${escapeHtml(l.usuario)} · ${formatDate(l.fecha)}</div>`).join('');
   } catch (err) {
     el.textContent = 'Error de conexión al cargar el historial.';
+  }
+}
+
+// ---- Papelera de obras ----
+async function eliminarObraActual() {
+  if (!currentObraData) return;
+  if (!confirm('¿Eliminar la obra "' + currentObraData.cliente + '"? Pasará a Obras eliminadas. Gerencia puede restaurarla o borrarla definitivamente desde ahí.')) return;
+  const res = await API.deleteObra(currentObraData.obraId, currentUser.token);
+  if (res.ok) {
+    await goHome();
+  } else {
+    alert('Error al eliminar: ' + res.error);
+  }
+}
+
+async function restaurarObraId(obraId, nombre) {
+  if (!confirm('¿Restaurar la obra "' + nombre + '"? Volverá a Obras activas.')) return;
+  const res = await API.restaurarObra(obraId, currentUser.token);
+  if (res.ok) {
+    renderHome();
+  } else {
+    alert('Error al restaurar: ' + res.error);
+  }
+}
+
+async function eliminarPermanenteObraId(obraId, nombre) {
+  if (!confirm('⚠ Esto borra "' + nombre + '" PARA SIEMPRE, incluidos sus archivos en Drive. No se puede deshacer. ¿Continuar?')) return;
+  if (!confirm('Confirmá una vez más: ¿eliminar definitivamente "' + nombre + '"?')) return;
+  const res = await API.eliminarPermanente(obraId, currentUser.token);
+  if (res.ok) {
+    renderHome();
+  } else {
+    alert('Error: ' + res.error);
   }
 }
 

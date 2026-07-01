@@ -23,8 +23,8 @@
 const SHEET_NAME = 'Obras';
 const USERS_SHEET_NAME = 'Usuarios';
 const LOGS_SHEET_NAME = 'Logs';
-const HEADERS = ['obraId', 'cliente', 'estado', 'fechaCreacion', 'fechaActualizacion', 'h1_json', 'h2_json', 'h3_json', 'h4_json', 'h5_json', 'fotos_json'];
-const COL = { obraId:1, cliente:2, estado:3, fechaCreacion:4, fechaActualizacion:5, h1:6, h2:7, h3:8, h4:9, h5:10, fotos:11 };
+const HEADERS = ['obraId', 'cliente', 'estado', 'fechaCreacion', 'fechaActualizacion', 'h1_json', 'h2_json', 'h3_json', 'h4_json', 'h5_json', 'fotos_json', 'eliminada', 'codigo'];
+const COL = { obraId:1, cliente:2, estado:3, fechaCreacion:4, fechaActualizacion:5, h1:6, h2:7, h3:8, h4:9, h5:10, fotos:11, eliminada:12, codigo:13 };
 const DRIVE_ROOT_FOLDER_NAME = 'Kokkai Obras - Archivos';
 
 // ---- Tablas usadas SOLO server-side para el cálculo financiero (H4) ----
@@ -33,11 +33,11 @@ const H3_TIPOS_COLOCACION = [
   { tipo:'Imprimación de Muro Previo', costoMt2:5 },
   { tipo:'Colocación de Revestimiento', costoMt2:20 },
   { tipo:'Colocación de Decks Sobre Carpeta Directa', costoMt2:20 },
-  { tipo:'Colocación de Decks + Estructura Galv./Madera', costoMt2:37.5 },
-  { tipo:'Remoción Piso Existente', costoMt2:9.09 },
+  { tipo:'Colocación de Decks + Estructura Galv./Madera', costoMt2:38 },
+  { tipo:'Remoción Deck Existente', costoMt2:5 },
+  { tipo:'Remoción Piso Existente', costoMt2:9 },
   { tipo:'Colocación Piso Pegado + Zócalos', costoMt2:16 },
-  { tipo:'Colocación Piso Flotante + Zócalos', costoMt2:13.99906673 },
-  { tipo:'Remoción Deck Existente', costoMt2:5 }
+  { tipo:'Colocación Piso Flotante + Zócalos', costoMt2:14 }
 ];
 
 const H3_SEGMENTOS = [
@@ -149,6 +149,34 @@ function findRow_(sheet, obraId) {
   return null;
 }
 
+// Código identificatorio corto (ej: OB-0007). Se busca el número más alto ya
+// usado (incluso en filas eliminadas) para no repetir códigos aunque se
+// borren obras definitivamente.
+function siguienteCodigoObra_(sheet) {
+  const data = sheet.getDataRange().getValues();
+  let maxNum = 0;
+  for (let i = 1; i < data.length; i++) {
+    const cod = data[i][COL.codigo - 1];
+    if (cod) {
+      const m = String(cod).match(/(\d+)\s*$/);
+      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    }
+  }
+  return 'OB-' + String(maxNum + 1).padStart(4, '0');
+}
+
+// Borra (a la papelera de Drive) la carpeta de archivos de una obra. Se usa
+// sólo en el borrado DEFINITIVO (Gerencia), nunca en el borrado normal.
+function eliminarCarpetaObra_(obraId) {
+  try {
+    const root = DriveApp.getFoldersByName(DRIVE_ROOT_FOLDER_NAME);
+    if (!root.hasNext()) return;
+    const rootFolder = root.next();
+    const obraIter = rootFolder.getFoldersByName(obraId);
+    if (obraIter.hasNext()) obraIter.next().setTrashed(true);
+  } catch (e) { /* si falla no bloqueamos el borrado de la fila */ }
+}
+
 // ============================================
 // Cálculo financiero (H4) — vive sólo acá
 // ============================================
@@ -243,9 +271,10 @@ function doGet(e) {
 
     if (action === 'list') {
       const data = sheet.getDataRange().getValues();
-      const rows = data.slice(1).filter(r => r[0]);
+      const rows = data.slice(1).filter(r => r[0] && r[COL.eliminada - 1] !== true);
       const obras = rows.map(r => ({
         obraId: r[COL.obraId - 1], cliente: r[COL.cliente - 1], estado: r[COL.estado - 1],
+        codigo: r[COL.codigo - 1] || '',
         fechaCreacion: r[COL.fechaCreacion - 1], fechaActualizacion: r[COL.fechaActualizacion - 1],
         progreso: {
           h1: completoFlag_(r[COL.h1 - 1]),
@@ -259,12 +288,25 @@ function doGet(e) {
       return jsonResponse_({ ok: true, obras, rol: user.rol, nombre: user.nombre });
     }
 
+    if (action === 'listEliminadas') {
+      if (user.rol === 'colocador') return jsonResponse_({ ok: false, error: 'No autorizado' });
+      const data = sheet.getDataRange().getValues();
+      const obras = data.slice(1)
+        .filter(r => r[0] && r[COL.eliminada - 1] === true)
+        .map(r => ({
+          obraId: r[COL.obraId - 1], cliente: r[COL.cliente - 1], estado: r[COL.estado - 1],
+          codigo: r[COL.codigo - 1] || '', fechaActualizacion: r[COL.fechaActualizacion - 1]
+        }));
+      return jsonResponse_({ ok: true, obras });
+    }
+
     if (action === 'get') {
       const found = findRow_(sheet, e.parameter.obraId);
       if (!found) return jsonResponse_({ ok: false, error: 'Obra no encontrada' });
       const row = found.row;
       const obra = {
         obraId: row[COL.obraId - 1], cliente: row[COL.cliente - 1], estado: row[COL.estado - 1],
+        codigo: row[COL.codigo - 1] || '',
         fechaCreacion: row[COL.fechaCreacion - 1], fechaActualizacion: row[COL.fechaActualizacion - 1]
       };
       const h1raw = row[COL.h1 - 1] ? JSON.parse(row[COL.h1 - 1]) : null;
@@ -323,8 +365,9 @@ function doPost(e) {
       let finalId = obraId;
       while (existingIds.indexOf(finalId) !== -1) { suffix++; finalId = obraId + '-' + suffix; }
       const now = new Date().toISOString();
-      sheet.appendRow([finalId, cliente, 'diagnostico', now, now, '', '', '', '', '', '']);
-      return jsonResponse_({ ok: true, obraId: finalId });
+      const codigo = siguienteCodigoObra_(sheet);
+      sheet.appendRow([finalId, cliente, 'diagnostico', now, now, '', '', '', '', '', '', false, codigo]);
+      return jsonResponse_({ ok: true, obraId: finalId, codigo });
     }
 
     if (action === 'save') {
@@ -396,8 +439,102 @@ function doPost(e) {
       return jsonResponse_({ ok: true });
     }
 
+    if (action === 'deleteObra') {
+      if (user.rol === 'colocador') return jsonResponse_({ ok: false, error: 'Tu rol no puede eliminar obras' });
+      const found = findRow_(sheet, body.obraId);
+      if (!found) return jsonResponse_({ ok: false, error: 'Obra no encontrada' });
+      sheet.getRange(found.rowIndex, COL.eliminada).setValue(true);
+      sheet.getRange(found.rowIndex, COL.fechaActualizacion).setValue(new Date().toISOString());
+      return jsonResponse_({ ok: true });
+    }
+
+    if (action === 'restaurarObra') {
+      if (user.rol === 'colocador') return jsonResponse_({ ok: false, error: 'Tu rol no puede restaurar obras' });
+      const found = findRow_(sheet, body.obraId);
+      if (!found) return jsonResponse_({ ok: false, error: 'Obra no encontrada' });
+      sheet.getRange(found.rowIndex, COL.eliminada).setValue(false);
+      sheet.getRange(found.rowIndex, COL.fechaActualizacion).setValue(new Date().toISOString());
+      return jsonResponse_({ ok: true });
+    }
+
+    if (action === 'eliminarPermanente') {
+      if (user.rol !== 'gerencia') return jsonResponse_({ ok: false, error: 'Solo Gerencia puede eliminar definitivamente' });
+      const found = findRow_(sheet, body.obraId);
+      if (!found) return jsonResponse_({ ok: false, error: 'Obra no encontrada' });
+      eliminarCarpetaObra_(body.obraId);
+      sheet.deleteRow(found.rowIndex);
+      return jsonResponse_({ ok: true });
+    }
+
     return jsonResponse_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
     return jsonResponse_({ ok: false, error: err.toString() });
   }
+}
+
+// ============================================
+// MIGRACIONES — ejecutar UNA sola vez a mano desde el editor de Apps
+// Script (elegir la función en el desplegable de arriba → ▶ Ejecutar).
+// Ambas son seguras de correr más de una vez: si no hay nada para
+// migrar, no hacen nada.
+// ============================================
+
+// Reordenamos H3_TIPOS_COLOCACION (para que coincida con el Excel madre) y
+// esto puede desalinear el índice guardado en obras que ya tenían un tipo
+// de colocación elegido. Esta función re-mapea esos índices por NOMBRE de
+// tipo, no por posición, así que no importa el orden anterior.
+function migrarTiposColocacionV2_() {
+  const NOMBRES_POSIBLES = [
+    'Imprimación de Muro Previo',
+    'Colocación de Revestimiento',
+    'Colocación de Decks Sobre Carpeta Directa',
+    'Colocación de Decks + Estructura Galv./Madera',
+    'Remoción Piso Existente',
+    'Colocación Piso Pegado + Zócalos',
+    'Colocación Piso Flotante + Zócalos',
+    'Remoción Deck Existente'
+  ];
+  const sheet = getSheet_();
+  const data = sheet.getDataRange().getValues();
+  let migradas = 0;
+  for (let i = 1; i < data.length; i++) {
+    const h3cell = data[i][COL.h3 - 1];
+    if (!h3cell) continue;
+    let h3data;
+    try { h3data = JSON.parse(h3cell); } catch (e) { continue; }
+    if (typeof h3data.tipoColocacionIdx !== 'number') continue;
+    const nombre = NOMBRES_POSIBLES[h3data.tipoColocacionIdx];
+    if (!nombre) continue;
+    const nuevoIdx = H3_TIPOS_COLOCACION.findIndex(t => t.tipo === nombre);
+    if (nuevoIdx === -1 || nuevoIdx === h3data.tipoColocacionIdx) continue;
+    h3data.tipoColocacionIdx = nuevoIdx;
+    sheet.getRange(i + 1, COL.h3).setValue(JSON.stringify(h3data));
+    migradas++;
+  }
+  Logger.log('Tipos de colocación migrados: ' + migradas);
+}
+
+// Le asigna un código (OB-0001, OB-0002, ...) a las obras que ya existían
+// antes de agregar la columna "codigo", en orden de fecha de creación.
+function asignarCodigosFaltantes_() {
+  const sheet = getSheet_();
+  const data = sheet.getDataRange().getValues();
+  let maxNum = 0;
+  const sinCodigo = [];
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    const cod = data[i][COL.codigo - 1];
+    if (cod) {
+      const m = String(cod).match(/(\d+)\s*$/);
+      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    } else {
+      sinCodigo.push({ rowIndex: i + 1, fechaCreacion: data[i][COL.fechaCreacion - 1] });
+    }
+  }
+  sinCodigo.sort((a, b) => new Date(a.fechaCreacion) - new Date(b.fechaCreacion));
+  sinCodigo.forEach(f => {
+    maxNum++;
+    sheet.getRange(f.rowIndex, COL.codigo).setValue('OB-' + String(maxNum).padStart(4, '0'));
+  });
+  Logger.log('Códigos asignados: ' + sinCodigo.length);
 }

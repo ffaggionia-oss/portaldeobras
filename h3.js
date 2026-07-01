@@ -40,11 +40,11 @@ const H3_TIPOS_COLOCACION = [
   {tipo:'Imprimación de Muro Previo', rendimiento:60, costoMt2:5},
   {tipo:'Colocación de Revestimiento', rendimiento:15, costoMt2:20},
   {tipo:'Colocación de Decks Sobre Carpeta Directa', rendimiento:15, costoMt2:20},
-  {tipo:'Colocación de Decks + Estructura Galv./Madera', rendimiento:8, costoMt2:37.5},
-  {tipo:'Remoción Piso Existente', rendimiento:33, costoMt2:9.09},
+  {tipo:'Colocación de Decks + Estructura Galv./Madera', rendimiento:8, costoMt2:38},
+  {tipo:'Remoción Deck Existente', rendimiento:60, costoMt2:5},
+  {tipo:'Remoción Piso Existente', rendimiento:33, costoMt2:9},
   {tipo:'Colocación Piso Pegado + Zócalos', rendimiento:18.75, costoMt2:16},
-  {tipo:'Colocación Piso Flotante + Zócalos', rendimiento:21.43, costoMt2:13.99906673},
-  {tipo:'Remoción Deck Existente', rendimiento:60, costoMt2:5}
+  {tipo:'Colocación Piso Flotante + Zócalos', rendimiento:21.43, costoMt2:14}
 ];
 
 const H3_ESCALADORES_DEFAULT = [
@@ -209,7 +209,7 @@ function renderH3(obra) {
         <div class="field"><label>Costo ayudante/día</label><input type="number" id="h3_costoAyudante" value="${d.costoAyudante}"></div>
         <div class="field"><label>Cant. ayudantes</label><input type="number" id="h3_cantAyudantes" value="${d.cantAyudantes}"></div>
       </div>
-      <div class="small-note" style="margin-top:10px;">Costo base MO x Mt²: <strong>$${calc.moBase.toFixed(2)}</strong> → Ajustado: <strong>$${calc.moAjustada.toFixed(2)}</strong></div>
+      <div class="small-note" style="margin-top:10px;">Costo base MO x Mt²: <strong>$${calc.moBase.toFixed(0)}</strong> → Ajustado: <strong>$${calc.moAjustada.toFixed(0)}</strong></div>
     </div>
 
     <div class="section">
@@ -266,7 +266,7 @@ function renderH3(obra) {
       <table class="calc-table">
         <thead><tr><th>Concepto</th><th>Costo x Mt²</th><th>Mt²</th><th>Total a pagar (USD)</th></tr></thead>
         <tbody>
-          <tr><td>Colocadores</td><td class="num">$${calc.moAjustada.toFixed(2)}</td><td class="num">${calc.mt2}</td><td class="num">$${calc.totalColocadores.toFixed(2)}</td></tr>
+          <tr><td>Colocadores</td><td class="num">$${calc.moAjustada.toFixed(0)}</td><td class="num">${calc.mt2}</td><td class="num">$${calc.totalColocadores.toFixed(0)}</td></tr>
           <tr><td>Fiscal técnico</td><td class="num">$${calc.fiscalMt2.toFixed(2)}</td><td class="num">${calc.mt2}</td><td class="num">$${calc.fiscalTotal.toFixed(2)}</td></tr>
           <tr class="total-row"><td colspan="3">TOTAL A PAGAR</td><td class="num">$${(calc.totalColocadores+calc.fiscalTotal).toFixed(2)}</td></tr>
         </tbody>

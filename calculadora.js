@@ -91,7 +91,7 @@ function refreshCalcPublica() {
   const ajustado = tipo.costoMt2 * (1 + totalAmpliacion + totalReduccion);
   const total = ajustado * mt2;
 
-  document.getElementById('calc_base').textContent = '$' + tipo.costoMt2.toFixed(2);
-  document.getElementById('calc_ajustado').textContent = '$' + ajustado.toFixed(2);
-  document.getElementById('calc_total').textContent = '$' + total.toFixed(2);
+  document.getElementById('calc_base').textContent = '$' + Math.round(tipo.costoMt2);
+  document.getElementById('calc_ajustado').textContent = '$' + Math.round(ajustado);
+  document.getElementById('calc_total').textContent = '$' + Math.round(total).toLocaleString('es-AR');
 }

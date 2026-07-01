@@ -44,7 +44,7 @@ function renderH4(obra) {
         <tbody>
           <tr><td>Materiales</td><td class="num">$${f.costoMateriales.toFixed(2)}</td><td class="num">$${f.totalMateriales.toFixed(2)}</td></tr>
           <tr><td>Periféricos</td><td class="num">$${f.costoPerifericos.toFixed(2)}</td><td class="num">$${f.totalPerifericos.toFixed(2)}</td></tr>
-          <tr><td>Mano de obra (colocadores)</td><td class="num">$${f.moAjustada.toFixed(2)}</td><td class="num">$${f.totalColocadores.toFixed(2)}</td></tr>
+          <tr><td>Mano de obra (colocadores)</td><td class="num">$${f.moAjustada.toFixed(0)}</td><td class="num">$${f.totalColocadores.toFixed(0)}</td></tr>
           <tr><td>Fiscal técnico</td><td class="num">$${f.fiscalMt2.toFixed(2)}</td><td class="num">$${f.fiscalTotal.toFixed(2)}</td></tr>
           <tr class="total-row"><td>Rentabilidad Kokkai</td><td class="num">$${f.rentabilidadMt2.toFixed(2)}</td><td class="num">$${f.rentabilidadTotal.toFixed(2)}</td></tr>
         </tbody>

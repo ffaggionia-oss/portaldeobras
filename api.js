@@ -69,6 +69,35 @@ const API = {
   async getLogs(obraId, hito, token) {
     const res = await fetch(`${CONFIG.API_URL}?action=logs&obraId=${encodeURIComponent(obraId)}&hito=${encodeURIComponent(hito)}&token=${encodeURIComponent(token)}`);
     return res.json();
+  },
+
+  async listEliminadas(token) {
+    const res = await fetch(`${CONFIG.API_URL}?action=listEliminadas&token=${encodeURIComponent(token)}`);
+    return res.json();
+  },
+
+  async deleteObra(obraId, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'deleteObra', obraId, token })
+    });
+    return res.json();
+  },
+
+  async restaurarObra(obraId, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'restaurarObra', obraId, token })
+    });
+    return res.json();
+  },
+
+  async eliminarPermanente(obraId, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'eliminarPermanente', obraId, token })
+    });
+    return res.json();
   }
 };
 
