@@ -1,10 +1,34 @@
 // ============================================
-// APP — navegación, helpers, guardado
+// APP — login, navegación, helpers, guardado
 // ============================================
 
+let currentUser = null; // { token, nombre, rol }
 let currentObraData = null;
 let currentHito = 'h1';
 let saveTimer = null;
+
+const ROLE_LABELS = {
+  colocador: 'Colocador',
+  compras_admin: 'Compras / Admin',
+  project_manager: 'Project Manager',
+  gerencia: 'Gerencia'
+};
+
+const HITO_LABELS = {
+  h1: 'H1 · Diagnóstico',
+  h2: 'H2 · Sistema constructivo',
+  h3: 'H3 · Costos y compras',
+  h4: 'H4 · Financiero',
+  h5: 'H5 · Remito final',
+  fotos: 'Fotos y Planos'
+};
+const HITO_ORDER = ['h1', 'h2', 'h3', 'h4', 'h5', 'fotos'];
+const ROLE_TABS = {
+  colocador:       ['h1', 'fotos'],
+  compras_admin:   ['h1', 'h2', 'h3', 'h5', 'fotos'],
+  project_manager: ['h1', 'h2', 'h3', 'h5', 'fotos'],
+  gerencia:        ['h1', 'h2', 'h3', 'h4', 'h5', 'fotos']
+};
 
 // ---- helpers ----
 function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
@@ -23,19 +47,17 @@ document.addEventListener('click', (e) => {
   }
 });
 document.addEventListener('change', (e) => {
-  if (e.target.matches('input, textarea, select')) scheduleAutosave();
+  if (e.target.matches('input, textarea, select') && e.target.type !== 'file') scheduleAutosave();
 });
 document.addEventListener('input', (e) => {
   if (e.target.matches('textarea, input[type=text]')) scheduleAutosave();
 });
 
 function scheduleAutosave() {
+  // H4/H5/fotos no usan autosave de texto (H4 guarda al elegir segmento, H5/fotos al subir archivo)
+  if (currentHito === 'h4' || currentHito === 'h5' || currentHito === 'fotos') return;
   clearTimeout(saveTimer);
   setSaveStatus('Editando...', '');
-  // Capturamos EN ESTE MOMENTO a qué hito pertenece este guardado.
-  // Si el usuario cambia de pestaña antes de que dispare el timer,
-  // igual va a guardar los datos del hito correcto (no el que esté
-  // activo cuando finalmente se ejecute el timeout).
   const hitoAlProgramar = currentHito;
   saveTimer = setTimeout(() => {
     saveTimer = null;
@@ -43,9 +65,6 @@ function scheduleAutosave() {
   }, 1500);
 }
 
-// Si hay un guardado pendiente (timer corriendo), lo cancela y lo
-// ejecuta de inmediato. Se usa antes de cambiar de pestaña/obra para
-// no perder ediciones que todavía no se guardaron.
 async function flushPendingSave() {
   if (saveTimer) {
     const hitoPendiente = currentHito;
@@ -62,8 +81,76 @@ function setSaveStatus(text, cls) {
   if (el) { el.textContent = text; el.className = 'save-status ' + cls; }
 }
 
+// ---- auth ----
+function renderLogin(errorMsg) {
+  const app = document.getElementById('app');
+  document.getElementById('connStatus').textContent = '';
+  app.innerHTML = `
+    <div style="max-width:380px; margin:60px auto 0;">
+      <div class="section">
+        <div class="section-title">Acceso</div>
+        <div class="field">
+          <label>Código de acceso</label>
+          <input type="text" id="loginTokenInput" placeholder="Tu código personal" autofocus>
+        </div>
+        ${errorMsg ? `<div class="small-note" style="color:var(--danger); margin-top:8px;">${escapeHtml(errorMsg)}</div>` : ''}
+        <button class="btn-primary btn-block" style="margin-top:14px;" onclick="intentarLogin()">Entrar</button>
+      </div>
+    </div>
+  `;
+  const input = document.getElementById('loginTokenInput');
+  input.focus();
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') intentarLogin(); });
+}
+
+async function intentarLogin() {
+  const token = document.getElementById('loginTokenInput').value.trim();
+  if (!token) return;
+  const res = await API.login(token);
+  if (res.ok) {
+    currentUser = { token, nombre: res.nombre, rol: res.rol };
+    localStorage.setItem('kokkai_token', token);
+    renderTopbarUser();
+    renderHome();
+  } else {
+    renderLogin(res.error || 'Código inválido');
+  }
+}
+
+function cerrarSesion() {
+  localStorage.removeItem('kokkai_token');
+  currentUser = null;
+  currentObraData = null;
+  document.getElementById('topbarUser').innerHTML = '';
+  renderLogin();
+}
+
+function renderTopbarUser() {
+  const el = document.getElementById('topbarUser');
+  if (!el || !currentUser) return;
+  el.innerHTML = `
+    <span>${escapeHtml(currentUser.nombre)} · ${escapeHtml(ROLE_LABELS[currentUser.rol] || currentUser.rol)}</span>
+    <span class="btn-ghost" style="margin-left:8px;" onclick="cerrarSesion()">Salir</span>
+  `;
+}
+
+async function initApp() {
+  const savedToken = localStorage.getItem('kokkai_token');
+  if (!savedToken) { renderLogin(); return; }
+  const res = await API.login(savedToken);
+  if (res.ok) {
+    currentUser = { token: savedToken, nombre: res.nombre, rol: res.rol };
+    renderTopbarUser();
+    renderHome();
+  } else {
+    localStorage.removeItem('kokkai_token');
+    renderLogin();
+  }
+}
+
 // ---- routing ----
 async function goHome() {
+  if (!currentUser) return;
   await flushPendingSave();
   currentObraData = null;
   location.hash = '';
@@ -72,10 +159,11 @@ async function goHome() {
 
 async function renderHome() {
   const app = document.getElementById('app');
+  const puedeCrear = currentUser.rol !== 'colocador';
   app.innerHTML = `
     <div class="list-header">
       <h1>Obras activas</h1>
-      <button class="btn-primary" onclick="openNuevaObraModal()">+ Nueva obra</button>
+      ${puedeCrear ? `<button class="btn-primary" onclick="openNuevaObraModal()">+ Nueva obra</button>` : ''}
     </div>
     <div id="obrasList"><div class="empty-state">Cargando...</div></div>
   `;
@@ -91,14 +179,14 @@ async function renderHome() {
   }
 
   try {
-    const res = await API.listObras();
+    const res = await API.listObras(currentUser.token);
     document.getElementById('connStatus').textContent = '● conectado';
     if (!res.ok) throw new Error(res.error);
     if (res.obras.length === 0) {
       document.getElementById('obrasList').innerHTML = `
         <div class="empty-state">
           <div class="big">Todavía no hay obras cargadas</div>
-          <p>Creá la primera para empezar el diagnóstico H1.</p>
+          <p>${puedeCrear ? 'Creá la primera para empezar el diagnóstico H1.' : 'Todavía no hay obras asignadas.'}</p>
         </div>`;
       return;
     }
@@ -152,7 +240,7 @@ function openNuevaObraModal() {
 async function crearObra() {
   const nombre = document.getElementById('nuevoClienteInput').value.trim();
   if (!nombre) return;
-  const res = await API.createObra(nombre);
+  const res = await API.createObra(nombre, currentUser.token);
   if (res.ok) {
     document.querySelector('.modal-overlay').remove();
     openObra(res.obraId);
@@ -164,16 +252,29 @@ async function crearObra() {
 async function openObra(obraId) {
   const app = document.getElementById('app');
   app.innerHTML = `<div class="empty-state">Cargando obra...</div>`;
-  const res = await API.getObra(obraId);
+  const res = await API.getObra(obraId, currentUser.token);
   if (!res.ok) { app.innerHTML = `<div class="empty-state">Error: ${escapeHtml(res.error)}</div>`; return; }
   currentObraData = res.obra;
-  currentHito = 'h1';
+  const tabs = ROLE_TABS[currentUser.rol] || ['h1'];
+  currentHito = tabs[0];
   renderObraView();
+}
+
+// Recarga la obra actual sin resetear la pestaña activa (usado tras subir
+// archivos o cambiar el segmento en Financiero, donde el backend recalcula).
+async function reloadObra() {
+  if (!currentObraData) return;
+  const res = await API.getObra(currentObraData.obraId, currentUser.token);
+  if (res.ok) {
+    currentObraData = res.obra;
+    renderObraView();
+  }
 }
 
 function renderObraView() {
   const o = currentObraData;
   const app = document.getElementById('app');
+  const tabs = HITO_ORDER.filter(h => (ROLE_TABS[currentUser.rol] || []).indexOf(h) !== -1);
   app.innerHTML = `
     <div class="obra-header">
       <div class="back-link" onclick="goHome()">← Volver a obras</div>
@@ -181,14 +282,12 @@ function renderObraView() {
       <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
     </div>
     <div class="hito-tabs">
-      <div class="hito-tab ${currentHito==='h1'?'active':''}" onclick="switchHito('h1')">H1 · Diagnóstico</div>
-      <div class="hito-tab ${currentHito==='h2'?'active':''}" onclick="switchHito('h2')">H2 · Sistema constructivo</div>
-      <div class="hito-tab ${currentHito==='h3'?'active':''}" onclick="switchHito('h3')">H3 · Compras y pago</div>
+      ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''}" onclick="switchHito('${h}')">${HITO_LABELS[h]}</div>`).join('')}
     </div>
     <div id="hito-content"></div>
     <div class="save-bar">
       <div class="save-status" id="saveStatus"></div>
-      <button class="btn-primary" onclick="saveCurrentHito(true)">Guardar ahora</button>
+      ${(currentHito!=='h4' && currentHito!=='h5' && currentHito!=='fotos') ? `<button class="btn-primary" onclick="saveCurrentHito(true)">Guardar ahora</button>` : ''}
     </div>
   `;
   renderCurrentHito();
@@ -205,11 +304,15 @@ function renderCurrentHito() {
   if (currentHito === 'h1') content.innerHTML = renderH1(currentObraData);
   if (currentHito === 'h2') content.innerHTML = renderH2(currentObraData);
   if (currentHito === 'h3') content.innerHTML = renderH3(currentObraData);
+  if (currentHito === 'h4') content.innerHTML = renderH4(currentObraData);
+  if (currentHito === 'h5') content.innerHTML = renderH5(currentObraData);
+  if (currentHito === 'fotos') content.innerHTML = renderFotos(currentObraData);
 }
 
 async function saveCurrentHito(manual, hitoOverride) {
   if (!currentObraData) return;
   const hito = hitoOverride || currentHito;
+  if (hito === 'h4' || hito === 'h5' || hito === 'fotos') return; // se guardan solos
   setSaveStatus('Guardando...', '');
   let data, estado;
   if (hito === 'h1') { data = collectH1(); currentObraData.h1 = data; }
@@ -217,7 +320,7 @@ async function saveCurrentHito(manual, hitoOverride) {
   if (hito === 'h3') { data = collectH3(); currentObraData.h3 = data; estado = 'compras_validadas'; }
 
   try {
-    const res = await API.saveHito(currentObraData.obraId, hito, data, estado);
+    const res = await API.saveHito(currentObraData.obraId, hito, data, estado, currentUser.token);
     if (res.ok) {
       setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
       if (estado) currentObraData.estado = estado;
@@ -230,4 +333,4 @@ async function saveCurrentHito(manual, hitoOverride) {
 }
 
 // ---- init ----
-renderHome();
+initApp();

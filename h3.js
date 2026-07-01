@@ -1,6 +1,7 @@
 // ============================================
-// H3 — Cálculo de Obra / Pedido de Compras / Orden de Pago
-// Replica las fórmulas de la Kokkai Calculadora (Google Sheets)
+// H3 — Cálculo de Costos / Pedido de Compras / Orden de Pago
+// La parte financiera (precio a cliente, márgenes, rentabilidad) vive en H4 (Financiero),
+// visible sólo para Gerencia. Acá sólo hay costos, no ganancia.
 // ============================================
 
 const H3_MATERIALES_DEFAULT = [
@@ -63,14 +64,6 @@ const H3_REDUCTORES_DEFAULT = [
   {condicion:'Obra 500–1000 mt²', pct:-0.125, aplica:false}
 ];
 
-const H3_SEGMENTOS = [
-  {nombre:'PREMIUM +', margen:0.50},
-  {nombre:'PREMIUM', margen:0.45},
-  {nombre:'MEDIUM', margen:0.40},
-  {nombre:'MÍNIMO', margen:0.35},
-  {nombre:'MUY MÍNIMO', margen:0.30}
-];
-
 function h3Default() {
   return {
     cliente: '', mt2: '',
@@ -80,65 +73,45 @@ function h3Default() {
     costoCapataz: 150, costoAyudante: 75, cantAyudantes: 2,
     escaladores: JSON.parse(JSON.stringify(H3_ESCALADORES_DEFAULT)),
     reductores: JSON.parse(JSON.stringify(H3_REDUCTORES_DEFAULT)),
-    fiscalIncluido: true, fiscalMinimo: 300, fiscalPct: 0.15,
-    segmentoActivo: 2 // index, MEDIUM
+    fiscalIncluido: true, fiscalMinimo: 300, fiscalPct: 0.15
   };
 }
 
-// ---- Cálculo (espejo de las fórmulas de Sheets) ----
-function h3Calcular(d) {
+// ---- Cálculo de COSTOS (sin margen ni precio a cliente — eso está en H4) ----
+function h3CostoCalcular(d) {
   const mt2 = parseFloat(d.mt2) || 0;
 
-  // Materiales: SUMA de costoMt2 para incluye=true. costoMt2 = unMt2 * costoUn
   let costoMateriales = 0;
   d.materiales.forEach(m => {
     if (m.incluye) costoMateriales += (parseFloat(m.unMt2)||0) * (parseFloat(m.costoUn)||0);
   });
 
-  // Periféricos: costoMt2 = (costoUn * cantidad) / mt2 (si mt2 > 0), sólo incluye=true
   let costoPerifericos = 0;
   d.perifericos.forEach(p => {
     if (p.incluye && mt2 > 0) costoPerifericos += ((parseFloat(p.costoUn)||0) * (parseFloat(p.cantidad)||0)) / mt2;
   });
 
-  // Mano de obra base según tipo de colocación elegido
   const tipo = H3_TIPOS_COLOCACION[d.tipoColocacionIdx] || H3_TIPOS_COLOCACION[0];
   const moBase = tipo.costoMt2;
 
-  // Escaladores (ampliación) — afectan sólo MO, tope 40%
   let totalAmpliacion = 0;
   d.escaladores.forEach(e => { if (e.aplica) totalAmpliacion += e.pct; });
   totalAmpliacion = Math.min(totalAmpliacion, 0.40);
 
-  // Reductores — afectan sólo MO
   let totalReduccion = 0;
   d.reductores.forEach(r => { if (r.aplica) totalReduccion += r.pct; });
 
   const moAjustada = moBase * (1 + totalAmpliacion + totalReduccion);
 
-  // Fiscal: 15% sobre MO BASE (no ajustada), mínimo USD 300 total obra
   const fiscalCalculadoTotal = moAjustada * mt2 * d.fiscalPct;
   const fiscalTotal = d.fiscalIncluido ? Math.max(fiscalCalculadoTotal, d.fiscalMinimo) : 0;
   const fiscalMt2 = mt2 > 0 ? fiscalTotal / mt2 : 0;
 
   const costoTotalMt2 = costoMateriales + costoPerifericos + moAjustada + fiscalMt2;
 
-  // Tabla de precios por segmento: precio = costo / (1 - margen)
-  const segmentos = H3_SEGMENTOS.map(s => {
-    const precioMt2 = s.margen < 1 ? costoTotalMt2 / (1 - s.margen) : 0;
-    return { ...s, precioMt2, totalObra: precioMt2 * mt2 };
-  });
-
-  const segmentoActivo = segmentos[d.segmentoActivo] || segmentos[2];
-  const precioFinalMt2 = segmentoActivo.precioMt2;
-  const totalObra = segmentoActivo.totalObra;
-  const rentabilidadMt2 = precioFinalMt2 - costoTotalMt2;
-  const rentabilidadTotal = rentabilidadMt2 * mt2;
-
   return {
     mt2, costoMateriales, costoPerifericos, moBase, totalAmpliacion, totalReduccion, moAjustada,
-    fiscalMt2, fiscalTotal, costoTotalMt2, segmentos, segmentoActivo, precioFinalMt2, totalObra,
-    rentabilidadMt2, rentabilidadTotal,
+    fiscalMt2, fiscalTotal, costoTotalMt2,
     totalMateriales: costoMateriales * mt2, totalPerifericos: costoPerifericos * mt2,
     totalColocadores: moAjustada * mt2
   };
@@ -146,7 +119,7 @@ function h3Calcular(d) {
 
 function renderH3(obra) {
   const d = obra.h3 || h3Default();
-  const calc = h3Calcular(d);
+  const calc = h3CostoCalcular(d);
 
   const materialesRows = d.materiales.map((m, i) => `
     <tr>
@@ -265,36 +238,11 @@ function renderH3(obra) {
     </div>
 
     <div class="section">
-      <div class="section-title">Segmento de precio</div>
-      <div class="segmento-tabs">
-        ${calc.segmentos.map((s, i) => `
-          <div class="segmento-chip ${d.segmentoActivo===i?'selected':''}" onclick="setSegmento(${i})">
-            <div class="seg-name">${s.nombre}</div>
-            <div class="seg-price">$${s.precioMt2.toFixed(0)}</div>
-          </div>
-        `).join('')}
-      </div>
-
+      <div class="section-title">Costo total x Mt²</div>
       <div class="stat-grid">
-        <div class="stat-box"><div class="label">Costo Total x Mt²</div><div class="value">$${calc.costoTotalMt2.toFixed(2)}</div></div>
-        <div class="stat-box accent"><div class="label">Precio a Cliente x Mt²</div><div class="value">$${calc.precioFinalMt2.toFixed(2)}</div></div>
-        <div class="stat-box accent"><div class="label">Total Obra (USD)</div><div class="value">$${calc.totalObra.toFixed(0)}</div></div>
-        <div class="stat-box"><div class="label">Rentabilidad Kokkai</div><div class="value">$${calc.rentabilidadTotal.toFixed(0)}</div></div>
+        <div class="stat-box accent"><div class="label">Costo Total x Mt²</div><div class="value">$${calc.costoTotalMt2.toFixed(2)}</div></div>
       </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Resumen de rentabilidad</div>
-      <table class="calc-table">
-        <thead><tr><th>Concepto</th><th>Costo x Mt²</th><th>Total</th></tr></thead>
-        <tbody>
-          <tr><td>Materiales</td><td class="num">$${calc.costoMateriales.toFixed(2)}</td><td class="num">$${calc.totalMateriales.toFixed(2)}</td></tr>
-          <tr><td>Periféricos</td><td class="num">$${calc.costoPerifericos.toFixed(2)}</td><td class="num">$${calc.totalPerifericos.toFixed(2)}</td></tr>
-          <tr><td>Mano de obra (colocadores)</td><td class="num">$${calc.moAjustada.toFixed(2)}</td><td class="num">$${calc.totalColocadores.toFixed(2)}</td></tr>
-          <tr><td>Fiscal técnico</td><td class="num">$${calc.fiscalMt2.toFixed(2)}</td><td class="num">$${calc.fiscalTotal.toFixed(2)}</td></tr>
-          <tr class="total-row"><td>Rentabilidad Kokkai</td><td class="num">$${calc.rentabilidadMt2.toFixed(2)}</td><td class="num">$${calc.rentabilidadTotal.toFixed(2)}</td></tr>
-        </tbody>
-      </table>
+      <div class="small-note" style="margin-top:8px;">Este es el costo de producción. El precio a cliente y la rentabilidad se definen en la solapa Financiero (sólo Gerencia).</div>
     </div>
 
     <div class="section">
@@ -326,13 +274,7 @@ function renderH3(obra) {
   `;
 }
 
-function setSegmento(i) {
-  currentObraData.h3.segmentoActivo = i;
-  refreshH3();
-}
-
 function refreshH3() {
-  // Sync DOM -> data model, then re-render
   currentObraData.h3 = collectH3();
   document.getElementById('hito-content').innerHTML = renderH3(currentObraData);
 }
@@ -369,7 +311,6 @@ function collectH3() {
     costoAyudante: parseFloat(val('h3_costoAyudante')) || prev.costoAyudante,
     cantAyudantes: parseFloat(val('h3_cantAyudantes')) || prev.cantAyudantes,
     fiscalIncluido: document.getElementById('h3_fiscalIncluido') ? document.getElementById('h3_fiscalIncluido').checked : prev.fiscalIncluido,
-    fiscalMinimo: prev.fiscalMinimo, fiscalPct: prev.fiscalPct,
-    segmentoActivo: prev.segmentoActivo
+    fiscalMinimo: prev.fiscalMinimo, fiscalPct: prev.fiscalPct
   };
 }
