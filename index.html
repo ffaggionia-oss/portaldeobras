@@ -208,6 +208,12 @@
   }
   .hito-tab.active { color: var(--paper); border-bottom-color: var(--rust); }
   .hito-tab:hover:not(.active) { color: var(--paper); }
+  .hito-tab.completo { color: var(--ok); }
+  .hito-tab.completo::before { content: '●'; font-size: 8px; margin-right: 6px; vertical-align: middle; }
+  .hito-tab.pendiente { color: var(--warn); }
+  .hito-tab.pendiente::before { content: '○'; font-size: 8px; margin-right: 6px; vertical-align: middle; }
+  .hito-tab.active.completo { border-bottom-color: var(--ok); }
+  .hito-tab.active.pendiente { border-bottom-color: var(--warn); }
 
   /* ---- Form building blocks ---- */
   .section {

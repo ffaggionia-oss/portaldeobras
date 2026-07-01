@@ -51,12 +51,31 @@ function renderH4(obra) {
       </table>
       <div class="small-note" style="margin-top:8px;">Los márgenes por segmento se calculan y almacenan en el servidor. Cambiar de segmento acá actualiza el precio guardado para esta obra.</div>
     </div>
+
+    <div class="section">
+      <div class="section-title">Estado del hito</div>
+      <div class="check-row">
+        <input type="checkbox" id="h4_completo" ${f.completo?'checked':''} onchange="toggleCompletoH4(this.checked)">
+        <div class="check-text">Marcar H4 · Financiero como completo</div>
+      </div>
+    </div>
   `;
+}
+
+async function toggleCompletoH4(checked) {
+  setSaveStatus('Guardando...', '');
+  const res = await API.saveHito(currentObraData.obraId, 'h4', { segmentoActivo: currentObraData.h4.segmentoActivo, _completo: checked }, null, currentUser.token);
+  if (res.ok) {
+    await reloadObra();
+    setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
+  } else {
+    setSaveStatus('Error al guardar: ' + res.error, 'error');
+  }
 }
 
 async function setSegmentoH4(i) {
   setSaveStatus('Guardando...', '');
-  const res = await API.saveHito(currentObraData.obraId, 'h4', { segmentoActivo: i }, null, currentUser.token);
+  const res = await API.saveHito(currentObraData.obraId, 'h4', { segmentoActivo: i, _completo: currentObraData.h4.completo }, null, currentUser.token);
   if (res.ok) {
     await reloadObra();
     setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');

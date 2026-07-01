@@ -73,7 +73,8 @@ function h3Default() {
     costoCapataz: 150, costoAyudante: 75, cantAyudantes: 2,
     escaladores: JSON.parse(JSON.stringify(H3_ESCALADORES_DEFAULT)),
     reductores: JSON.parse(JSON.stringify(H3_REDUCTORES_DEFAULT)),
-    fiscalIncluido: true, fiscalMinimo: 300, fiscalPct: 0.15
+    fiscalIncluido: true, fiscalMinimo: 300, fiscalPct: 0.15,
+    _completo: false
   };
 }
 
@@ -271,6 +272,14 @@ function renderH3(obra) {
       </table>
       <div class="small-note" style="margin-top:8px;">⚠ Los montos de colocadores incluyen escaladores y reducciones activos. El fiscal cobra mínimo USD 300 por obra.</div>
     </div>
+
+    <div class="section">
+      <div class="section-title">Estado del hito</div>
+      <div class="check-row">
+        <input type="checkbox" id="h3_completo" ${d._completo?'checked':''} onchange="scheduleAutosave()">
+        <div class="check-text">Marcar H3 · Costos y compras como completo</div>
+      </div>
+    </div>
   `;
 }
 
@@ -311,6 +320,7 @@ function collectH3() {
     costoAyudante: parseFloat(val('h3_costoAyudante')) || prev.costoAyudante,
     cantAyudantes: parseFloat(val('h3_cantAyudantes')) || prev.cantAyudantes,
     fiscalIncluido: document.getElementById('h3_fiscalIncluido') ? document.getElementById('h3_fiscalIncluido').checked : prev.fiscalIncluido,
-    fiscalMinimo: prev.fiscalMinimo, fiscalPct: prev.fiscalPct
+    fiscalMinimo: prev.fiscalMinimo, fiscalPct: prev.fiscalPct,
+    _completo: document.getElementById('h3_completo') ? document.getElementById('h3_completo').checked : false
   };
 }

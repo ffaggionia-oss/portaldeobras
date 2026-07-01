@@ -197,6 +197,7 @@ async function renderHome() {
           <div>
             <div class="nombre">${escapeHtml(o.cliente)}</div>
             <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}</div>
+            ${renderProgresoDots(o.progreso)}
           </div>
           <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
         </div>
@@ -207,8 +208,25 @@ async function renderHome() {
   }
 }
 
+function hitoCompleto(obra, hito) {
+  if (hito === 'h1' || hito === 'h2' || hito === 'h3') return !!(obra[hito] && obra[hito]._completo);
+  if (hito === 'h4') return !!(obra.h4 && obra.h4.completo);
+  if (hito === 'h5') return !!(obra.h5 && obra.h5.length > 0);
+  if (hito === 'fotos') return !!(obra.fotos && obra.fotos.length > 0);
+  return false;
+}
+
 function estadoLabel(e) {
   return { diagnostico: 'Diagnóstico', sistema_definido: 'Sistema definido', compras_validadas: 'Compras validadas', en_obra: 'En obra', cerrada: 'Cerrada' }[e] || e;
+}
+
+function renderProgresoDots(progreso) {
+  if (!progreso) return '';
+  const tabs = (ROLE_TABS[currentUser.rol] || []).filter(h => h !== 'fotos');
+  if (tabs.length === 0) return '';
+  const hechos = tabs.filter(h => progreso[h]).length;
+  const dots = tabs.map(h => `<span title="${HITO_LABELS[h]}" style="display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; background:${progreso[h] ? 'var(--ok)' : 'transparent'}; border:1.5px solid ${progreso[h] ? 'var(--ok)' : 'var(--line)'};"></span>`).join('');
+  return `<div class="sub" style="margin-top:6px; display:flex; align-items:center; gap:6px;">${dots}<span style="font-family:var(--font-mono); font-size:10.5px;">${hechos}/${tabs.length}</span></div>`;
 }
 
 function formatDate(iso) {
@@ -282,7 +300,7 @@ function renderObraView() {
       <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
     </div>
     <div class="hito-tabs">
-      ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''}" onclick="switchHito('${h}')">${HITO_LABELS[h]}</div>`).join('')}
+      ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''} ${hitoCompleto(o, h)?'completo':'pendiente'}" onclick="switchHito('${h}')">${HITO_LABELS[h]}</div>`).join('')}
     </div>
     <div id="hito-content"></div>
     <div class="save-bar">

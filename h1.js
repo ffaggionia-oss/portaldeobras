@@ -68,7 +68,8 @@ function h1Default() {
     pisosNotas: '',
     problemasComunes: H1_PROBLEMAS_COMUNES.map(item => ({ item, detalle: '' })),
     notasGenerales: '',
-    firmaFiscal: '', fechaEntrega: ''
+    firmaFiscal: '', fechaEntrega: '',
+    _completo: false
   };
 }
 
@@ -183,6 +184,14 @@ function renderH1(obra) {
         <div class="field"><label>Fecha entrega diagnóstico</label><input type="date" id="h1_fechaEntrega" value="${escapeAttr(d.fechaEntrega)}"></div>
       </div>
     </div>
+
+    <div class="section">
+      <div class="section-title">Estado del hito</div>
+      <div class="check-row">
+        <input type="checkbox" id="h1_completo" ${d._completo?'checked':''} onchange="scheduleAutosave()">
+        <div class="check-text">Marcar H1 · Diagnóstico como completo</div>
+      </div>
+    </div>
   `;
 }
 
@@ -238,6 +247,7 @@ function collectH1() {
     pisosNotas: val('h1_pisosNotas'),
     problemasComunes,
     notasGenerales: val('h1_notasGenerales'),
-    firmaFiscal: val('h1_firmaFiscal'), fechaEntrega: val('h1_fechaEntrega')
+    firmaFiscal: val('h1_firmaFiscal'), fechaEntrega: val('h1_fechaEntrega'),
+    _completo: document.getElementById('h1_completo') ? document.getElementById('h1_completo').checked : false
   };
 }

@@ -22,7 +22,8 @@ function h2Default() {
     piso_sistema: [], piso_sistemaEspecificar: '',
     piso_problemasPrevios: [],
     piso_notas: '',
-    driveLink: ''
+    driveLink: '',
+    _completo: false
   };
 }
 
@@ -181,6 +182,14 @@ function renderH2(obra) {
       <div class="small-note" style="margin-bottom:10px;">⚠ Planos, fotos y documentación se deben encontrar en el Drive del cliente.</div>
       <div class="field full"><label>Carpeta de Drive del cliente</label><input type="text" id="h2_driveLink" placeholder="https://drive.google.com/..." value="${escapeAttr(d.driveLink)}"></div>
     </div>
+
+    <div class="section">
+      <div class="section-title">Estado del hito</div>
+      <div class="check-row">
+        <input type="checkbox" id="h2_completo" ${d._completo?'checked':''} onchange="scheduleAutosave()">
+        <div class="check-text">Marcar H2 · Sistema constructivo como completo</div>
+      </div>
+    </div>
   `;
 }
 
@@ -215,6 +224,7 @@ function collectH2() {
     piso_sistema: collectMultiCheck(H2_PISO_SISTEMA_OPTS, 'h2_piso_sis'), piso_sistemaEspecificar: val('h2_piso_sistemaEspecificar'),
     piso_problemasPrevios: collectMultiCheck(H2_PISO_PROBLEMAS_OPTS, 'h2_piso_prob'),
     piso_notas: val('h2_piso_notas'),
-    driveLink: val('h2_driveLink')
+    driveLink: val('h2_driveLink'),
+    _completo: document.getElementById('h2_completo') ? document.getElementById('h2_completo').checked : false
   };
 }

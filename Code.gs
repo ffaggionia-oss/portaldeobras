@@ -118,6 +118,15 @@ function parseArr_(val) {
   try { const p = JSON.parse(val); return Array.isArray(p) ? p : []; } catch (e) { return []; }
 }
 
+function completoFlag_(jsonStr) {
+  if (!jsonStr) return false;
+  try { const p = JSON.parse(jsonStr); return !!(p && p._completo); } catch (e) { return false; }
+}
+
+function arrCount_(jsonStr) {
+  return parseArr_(jsonStr).length;
+}
+
 function findRow_(sheet, obraId) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
@@ -180,7 +189,7 @@ function financiero_(h3data, h4data) {
 
   return Object.assign({}, costos, {
     segmentos, segmentoActivo, precioFinalMt2: seg.precioMt2, totalObra: seg.totalObra,
-    rentabilidadMt2, rentabilidadTotal
+    rentabilidadMt2, rentabilidadTotal, completo: !!(h4data && h4data._completo)
   });
 }
 
@@ -223,7 +232,15 @@ function doGet(e) {
       const rows = data.slice(1).filter(r => r[0]);
       const obras = rows.map(r => ({
         obraId: r[COL.obraId - 1], cliente: r[COL.cliente - 1], estado: r[COL.estado - 1],
-        fechaCreacion: r[COL.fechaCreacion - 1], fechaActualizacion: r[COL.fechaActualizacion - 1]
+        fechaCreacion: r[COL.fechaCreacion - 1], fechaActualizacion: r[COL.fechaActualizacion - 1],
+        progreso: {
+          h1: completoFlag_(r[COL.h1 - 1]),
+          h2: completoFlag_(r[COL.h2 - 1]),
+          h3: completoFlag_(r[COL.h3 - 1]),
+          h4: completoFlag_(r[COL.h4 - 1]),
+          h5: arrCount_(r[COL.h5 - 1]) > 0,
+          fotos: arrCount_(r[COL.fotos - 1]) > 0
+        }
       }));
       return jsonResponse_({ ok: true, obras, rol: user.rol, nombre: user.nombre });
     }
