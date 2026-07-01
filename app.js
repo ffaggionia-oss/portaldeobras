@@ -32,7 +32,29 @@ document.addEventListener('input', (e) => {
 function scheduleAutosave() {
   clearTimeout(saveTimer);
   setSaveStatus('Editando...', '');
-  saveTimer = setTimeout(saveCurrentHito, 1500);
+  // Capturamos EN ESTE MOMENTO a qué hito pertenece este guardado.
+  // Si el usuario cambia de pestaña antes de que dispare el timer,
+  // igual va a guardar los datos del hito correcto (no el que esté
+  // activo cuando finalmente se ejecute el timeout).
+  const hitoAlProgramar = currentHito;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    saveCurrentHito(false, hitoAlProgramar);
+  }, 1500);
+}
+
+// Si hay un guardado pendiente (timer corriendo), lo cancela y lo
+// ejecuta de inmediato. Se usa antes de cambiar de pestaña/obra para
+// no perder ediciones que todavía no se guardaron.
+async function flushPendingSave() {
+  if (saveTimer) {
+    const hitoPendiente = currentHito;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    if (currentObraData) {
+      await saveCurrentHito(false, hitoPendiente);
+    }
+  }
 }
 
 function setSaveStatus(text, cls) {
@@ -41,7 +63,8 @@ function setSaveStatus(text, cls) {
 }
 
 // ---- routing ----
-function goHome() {
+async function goHome() {
+  await flushPendingSave();
   currentObraData = null;
   location.hash = '';
   renderHome();
@@ -171,7 +194,8 @@ function renderObraView() {
   renderCurrentHito();
 }
 
-function switchHito(hito) {
+async function switchHito(hito) {
+  await flushPendingSave();
   currentHito = hito;
   renderObraView();
 }
@@ -183,16 +207,17 @@ function renderCurrentHito() {
   if (currentHito === 'h3') content.innerHTML = renderH3(currentObraData);
 }
 
-async function saveCurrentHito(manual) {
+async function saveCurrentHito(manual, hitoOverride) {
   if (!currentObraData) return;
+  const hito = hitoOverride || currentHito;
   setSaveStatus('Guardando...', '');
   let data, estado;
-  if (currentHito === 'h1') { data = collectH1(); currentObraData.h1 = data; }
-  if (currentHito === 'h2') { data = collectH2(); currentObraData.h2 = data; estado = 'sistema_definido'; }
-  if (currentHito === 'h3') { data = collectH3(); currentObraData.h3 = data; estado = 'compras_validadas'; }
+  if (hito === 'h1') { data = collectH1(); currentObraData.h1 = data; }
+  if (hito === 'h2') { data = collectH2(); currentObraData.h2 = data; estado = 'sistema_definido'; }
+  if (hito === 'h3') { data = collectH3(); currentObraData.h3 = data; estado = 'compras_validadas'; }
 
   try {
-    const res = await API.saveHito(currentObraData.obraId, currentHito, data, estado);
+    const res = await API.saveHito(currentObraData.obraId, hito, data, estado);
     if (res.ok) {
       setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
       if (estado) currentObraData.estado = estado;
