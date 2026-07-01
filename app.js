@@ -198,16 +198,14 @@ async function renderHome() {
       ? `<div class="empty-state"><div class="big">No hay obras activas</div><p>Todas las obras están archivadas, o todavía no creaste ninguna.</p></div>`
       : activas.map(renderObraCard).join('');
 
-    if (archivadas.length > 0) {
-      html += `
-        <div class="archive-toggle" id="archiveToggle" onclick="toggleArchivadas()">
-          <span class="arrow">▸</span> Obras archivadas / terminadas (${archivadas.length})
-        </div>
-        <div class="archivadas-list" id="archivadasList" style="display:none;">
-          ${archivadas.map(renderObraCard).join('')}
-        </div>
-      `;
-    }
+    html += `
+      <div class="archive-toggle" id="archiveToggle" onclick="toggleArchivadas()">
+        <span class="arrow">▸</span> Obras archivadas / terminadas (${archivadas.length})
+      </div>
+      <div class="archivadas-list" id="archivadasList" style="display:none;">
+        ${archivadas.length === 0 ? '<div class="small-note" style="padding:10px 0;">Todavía no hay obras marcadas como terminadas. Se marcan desde la solapa H5 dentro de cada obra.</div>' : archivadas.map(renderObraCard).join('')}
+      </div>
+    `;
 
     document.getElementById('obrasList').innerHTML = html;
   } catch (err) {
