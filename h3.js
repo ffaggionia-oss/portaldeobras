@@ -2,106 +2,129 @@
 // H3 — Cálculo de Costos / Pedido de Compras / Orden de Pago
 // La parte financiera (precio a cliente, márgenes, rentabilidad) vive en H4 (Financiero),
 // visible sólo para Gerencia. Acá sólo hay costos, no ganancia.
+//
+// Los precios de tipos de colocación, materiales, periféricos, escaladores y
+// reductores YA NO están hardcodeados acá: vienen del Maestro de Precios
+// (variable global MAESTRO, cargada por app.js al iniciar sesión) y Gerencia
+// los edita desde el panel "⚙ Precios y Materiales" sin tocar código.
 // ============================================
 
-const H3_MATERIALES_DEFAULT = [
-  {categoria:'Revestimientos', insumo:'Perfil PGO 37 x 0,94 mm x 6,00 mts', proveedor:'CMP / EnSeco', unMt2:3, unidad:'Mt/L', costoUn:2.80, incluye:false},
-  {categoria:'Revestimientos', insumo:'Perfil PGO 22 x 0,94 mm x 3,00 mts', proveedor:'CMP / EnSeco', unMt2:3, unidad:'Mt/L', costoUn:2.05, incluye:false},
-  {categoria:'Revestimientos', insumo:'Pino CCA 1x3', proveedor:'Maderera Newton', unMt2:3, unidad:'Mt/L', costoUn:2.00, incluye:false},
-  {categoria:'Revestimientos', insumo:'Pino CCA 2x2', proveedor:'Maderera Newton', unMt2:3, unidad:'Mt/L', costoUn:2.00, incluye:false},
-  {categoria:'Revestimientos', insumo:'Tornillo Ø8 × 70 mm + Tarugo Nylon 8 (Par)', proveedor:'Bulonera Tigre', unMt2:3, unidad:'Pares', costoUn:0.03, incluye:false},
-  {categoria:'Revestimientos', insumo:'Tornillo Ø8 × 50 mm + Tarugo Nylon 8 (Par)', proveedor:'Bulonera Tigre', unMt2:3, unidad:'Pares', costoUn:0.03, incluye:false},
-  {categoria:'Revestimientos', insumo:'Tornillo KKTN Negro 5x40 mm', proveedor:'Rothoblaas', unMt2:25, unidad:'Unidades', costoUn:0.15, incluye:false},
-  {categoria:'Revestimientos', insumo:'Tornillo KKAN 5x40 mm', proveedor:'Rothoblaas', unMt2:25, unidad:'Unidades', costoUn:0.30, incluye:false},
-  {categoria:'Revestimientos', insumo:'Tornillo SHS 3,5x30 mm', proveedor:'Rothoblaas', unMt2:15, unidad:'Unidades', costoUn:0.05, incluye:false},
-  {categoria:'Revestimientos', insumo:'Grampas (cualquier tamaño)', proveedor:'Colocador', unMt2:0, unidad:'', costoUn:0, incluye:false},
-  {categoria:'Decks', insumo:'PCG Galvanizado 80x40x15x1,6 mm — Viguetas', proveedor:'En Seco / Mundo Hierro / CMP', calculo:'Cada 0,40 mt', unMt2:3, unidad:'Mt/L', costoUn:3.65, incluye:false},
-  {categoria:'Decks', insumo:'PCG Galvanizado 80x40x15x1,6 mm — Perímetro', proveedor:'En Seco / Mundo Hierro / CMP', calculo:'Perímetro/Mt²', unMt2:1.33, unidad:'Mt/L', costoUn:3.65, incluye:false},
-  {categoria:'Decks', insumo:'PCG Galvanizado 80x40x15x1,6 mm — Patas', proveedor:'En Seco / Mundo Hierro / CMP', calculo:'3,5 patas x Mt²', unMt2:0.52, unidad:'Mt/L', costoUn:3.65, incluye:false},
-  {categoria:'Decks', insumo:'PCG Galvanizado 80x40x15x1,6 mm — Bloqueos y desperdicio', proveedor:'En Seco / Mundo Hierro / CMP', calculo:'2 × Espacio Interno', unMt2:0.80, unidad:'Mt/L', costoUn:3.65, incluye:false},
-  {categoria:'Decks', insumo:'Clip Thermory T4 o PC Clips', proveedor:'Thermory', calculo:'3 U. x Mt/l', unMt2:25, unidad:'Unidades', costoUn:0.30, incluye:false},
-  {categoria:'Decks', insumo:'Tornillo P/Clip KKAN 4x30 mm', proveedor:'Rothoblaas / Bulonera', unMt2:25, unidad:'Unidades', costoUn:0.15, incluye:false},
-  {categoria:'Pisos', insumo:'Manta', proveedor:'MercadoLibre', unMt2:1, unidad:'Mt²', costoUn:2.21, incluye:false},
-  {categoria:'Pisos', insumo:'Nylon 200 Micrones', proveedor:'MercadoLibre', unMt2:1, unidad:'Mt²', costoUn:1.00, incluye:false},
-  {categoria:'Pisos', insumo:'Pegamento Elástico Base Xilano', proveedor:'Bona / Kekol / Mapei', calculo:'1 kg/mt²', unMt2:1, unidad:'Kg', costoUn:7.50, incluye:false},
-  {categoria:'Pisos', insumo:'Zócalo 10 cm', proveedor:'AlpaMat / Parky', unMt2:0.7, unidad:'Mt/l', costoUn:6.00, incluye:false}
-];
-
-const H3_PERIFERICOS_DEFAULT = [
-  {insumo:'Transporte a Obra', proveedor:'Gargano', unidad:'Viaje', costoUn:250, cantidad:1, incluye:true},
-  {insumo:'Andamios — 2 cuerpos/mes + 3 tablones', proveedor:'Amaplac', unidad:'Total', costoUn:95, cantidad:0, incluye:false},
-  {insumo:'Andamios — 3 cuerpos/mes + 3 tablones', proveedor:'Amaplac', unidad:'Total', costoUn:120, cantidad:0, incluye:false},
-  {insumo:'Pintura Asfáltica al Agua Protex 400 Lt', proveedor:'Protex', unidad:'Tanque 400 lt', costoUn:300, cantidad:0, incluye:false},
-  {insumo:'Volquete', proveedor:'-', unidad:'Unidad', costoUn:70, cantidad:0, incluye:false},
-  {insumo:'Silicona PU 40', proveedor:'Unipega', unidad:'Pomo', costoUn:7, cantidad:0, incluye:false}
-];
-
-const H3_TIPOS_COLOCACION = [
-  {tipo:'Imprimación de Muro Previo', rendimiento:60, costoMt2:5},
-  {tipo:'Colocación de Revestimiento', rendimiento:15, costoMt2:20},
-  {tipo:'Colocación de Decks Sobre Carpeta Directa', rendimiento:15, costoMt2:20},
-  {tipo:'Colocación de Decks + Estructura Galv./Madera', rendimiento:8, costoMt2:38},
-  {tipo:'Remoción Deck Existente', rendimiento:60, costoMt2:5},
-  {tipo:'Remoción Piso Existente', rendimiento:33, costoMt2:9},
-  {tipo:'Colocación Piso Pegado + Zócalos', rendimiento:18.75, costoMt2:16},
-  {tipo:'Colocación Piso Flotante + Zócalos', rendimiento:21.43, costoMt2:14}
-];
-
-const H3_ESCALADORES_DEFAULT = [
-  {condicion:'Desarraigo', pct:0.25, aplica:false},
-  {condicion:'Cieloraso con estructura', pct:0.12, aplica:false},
-  {condicion:'Trabajo en Altura', pct:0.12, aplica:false},
-  {condicion:'Acceso Difícil', pct:0.10, aplica:false},
-  {condicion:'Trabajo Nocturno', pct:0.15, aplica:false},
-  {condicion:'Extra Zona (3er Cordón)', pct:0.08, aplica:false},
-  {condicion:'Diseño Complejo', pct:0.10, aplica:false},
-  {condicion:'Obra < 20 mt²', pct:0.25, aplica:false},
-  {condicion:'Obra < 40 mt²', pct:0.15, aplica:false}
-];
-
-const H3_REDUCTORES_DEFAULT = [
-  {condicion:'Obra 200–300 mt²', pct:-0.08, aplica:false},
-  {condicion:'Obra 300–500 mt²', pct:-0.10, aplica:false},
-  {condicion:'Obra 500–1000 mt²', pct:-0.125, aplica:false}
-];
+function h3TipoDefaultId() {
+  const tipos = MAESTRO.tipos || [];
+  return (tipos[1] && tipos[1].id) || (tipos[0] && tipos[0].id) || '';
+}
 
 function h3Default() {
   return {
     cliente: '', mt2: '',
-    materiales: JSON.parse(JSON.stringify(H3_MATERIALES_DEFAULT)),
-    perifericos: JSON.parse(JSON.stringify(H3_PERIFERICOS_DEFAULT)),
-    tipoColocacionIdx: 1,
+    materiales: mergeMateriales([]),
+    perifericos: mergePerifericos([]),
+    tipoColocacionId: h3TipoDefaultId(),
     costoCapataz: 150, costoAyudante: 75, cantAyudantes: 2,
-    escaladores: JSON.parse(JSON.stringify(H3_ESCALADORES_DEFAULT)),
-    reductores: JSON.parse(JSON.stringify(H3_REDUCTORES_DEFAULT)),
+    escaladores: mergeEscaladores([]),
+    reductores: mergeReductores([]),
     fiscalIncluido: true, fiscalMinimo: 300, fiscalPct: 0.15,
     _completo: false
   };
 }
 
-// ---- Cálculo de COSTOS (sin margen ni precio a cliente — eso está en H4) ----
+// ---- Combina lo que Gerencia definió en el Maestro con lo que ya estaba
+// guardado en esta obra en particular (para no perder selecciones hechas
+// antes de que cambiara el Maestro). Se referencia siempre por `id`, nunca
+// por posición, así que agregar/reordenar productos en el Maestro no rompe
+// obras existentes.
+function mergeMateriales(obraMateriales) {
+  const porId = {};
+  (obraMateriales || []).forEach(m => { if (m.id) porId[m.id] = m; });
+  const usados = {};
+  const result = (MAESTRO.materiales || []).map(mm => {
+    usados[mm.id] = true;
+    const ex = porId[mm.id];
+    return {
+      id: mm.id, categoria: mm.categoria, insumo: mm.insumo, proveedor: mm.proveedor, calculo: mm.calculo, unidad: mm.unidad,
+      unMt2: ex ? ex.unMt2 : mm.unMt2,
+      costoUn: ex ? ex.costoUn : mm.costoUn,
+      incluye: ex ? !!ex.incluye : false
+    };
+  });
+  (obraMateriales || []).forEach(m => {
+    if (m.id && !usados[m.id] && m.incluye) result.push(Object.assign({}, m, { _inactivo: true }));
+  });
+  return result;
+}
+
+function mergePerifericos(obraPerifericos) {
+  const porId = {};
+  (obraPerifericos || []).forEach(p => { if (p.id) porId[p.id] = p; });
+  const usados = {};
+  const result = (MAESTRO.perifericos || []).map(mp => {
+    usados[mp.id] = true;
+    const ex = porId[mp.id];
+    return {
+      id: mp.id, insumo: mp.insumo, proveedor: mp.proveedor, unidad: mp.unidad,
+      costoUn: ex ? ex.costoUn : mp.costoUn,
+      cantidad: ex ? ex.cantidad : 0,
+      incluye: ex ? !!ex.incluye : (mp.id === 'per01')
+    };
+  });
+  (obraPerifericos || []).forEach(p => {
+    if (p.id && !usados[p.id] && p.incluye) result.push(Object.assign({}, p, { _inactivo: true }));
+  });
+  return result;
+}
+
+function mergeEscaladores(obraEsc) {
+  const porId = {};
+  (obraEsc || []).forEach(e => { if (e.id) porId[e.id] = e; });
+  const usados = {};
+  const result = (MAESTRO.escaladores || []).map(me => {
+    usados[me.id] = true;
+    const ex = porId[me.id];
+    return { id: me.id, condicion: me.condicion, pct: me.pct, aplica: ex ? !!ex.aplica : false };
+  });
+  (obraEsc || []).forEach(e => {
+    if (e.id && !usados[e.id] && e.aplica) result.push(Object.assign({}, e, { _inactivo: true }));
+  });
+  return result;
+}
+
+function mergeReductores(obraRed) {
+  const porId = {};
+  (obraRed || []).forEach(r => { if (r.id) porId[r.id] = r; });
+  const usados = {};
+  const result = (MAESTRO.reductores || []).map(mr => {
+    usados[mr.id] = true;
+    const ex = porId[mr.id];
+    return { id: mr.id, condicion: mr.condicion, pct: mr.pct, aplica: ex ? !!ex.aplica : false };
+  });
+  (obraRed || []).forEach(r => {
+    if (r.id && !usados[r.id] && r.aplica) result.push(Object.assign({}, r, { _inactivo: true }));
+  });
+  return result;
+}
+
+// ---- Cálculo de COSTOS (sin margen ni precio a cliente — eso está en H4).
+// Es sólo para la vista previa en el navegador; el cálculo que realmente
+// se guarda y usa para el financiero se hace en el servidor (Code.gs), que
+// es la fuente de verdad de precios.
 function h3CostoCalcular(d) {
   const mt2 = parseFloat(d.mt2) || 0;
 
   let costoMateriales = 0;
-  d.materiales.forEach(m => {
-    if (m.incluye) costoMateriales += (parseFloat(m.unMt2)||0) * (parseFloat(m.costoUn)||0);
-  });
+  d.materiales.forEach(m => { if (m.incluye) costoMateriales += (parseFloat(m.unMt2) || 0) * (parseFloat(m.costoUn) || 0); });
 
   let costoPerifericos = 0;
-  d.perifericos.forEach(p => {
-    if (p.incluye && mt2 > 0) costoPerifericos += ((parseFloat(p.costoUn)||0) * (parseFloat(p.cantidad)||0)) / mt2;
-  });
+  d.perifericos.forEach(p => { if (p.incluye && mt2 > 0) costoPerifericos += ((parseFloat(p.costoUn) || 0) * (parseFloat(p.cantidad) || 0)) / mt2; });
 
-  const tipo = H3_TIPOS_COLOCACION[d.tipoColocacionIdx] || H3_TIPOS_COLOCACION[0];
-  const moBase = tipo.costoMt2;
+  const tipo = (MAESTRO.tipos || []).find(t => t.id === d.tipoColocacionId) || (MAESTRO.tipos || [])[0] || { costoMt2: 0 };
+  const moBase = parseFloat(tipo.costoMt2) || 0;
 
   let totalAmpliacion = 0;
-  d.escaladores.forEach(e => { if (e.aplica) totalAmpliacion += e.pct; });
+  d.escaladores.forEach(e => { if (e.aplica) totalAmpliacion += parseFloat(e.pct) || 0; });
   totalAmpliacion = Math.min(totalAmpliacion, 0.40);
 
   let totalReduccion = 0;
-  d.reductores.forEach(r => { if (r.aplica) totalReduccion += r.pct; });
+  d.reductores.forEach(r => { if (r.aplica) totalReduccion += parseFloat(r.pct) || 0; });
 
   const moAjustada = moBase * (1 + totalAmpliacion + totalReduccion);
 
@@ -120,55 +143,64 @@ function h3CostoCalcular(d) {
 }
 
 function renderH3(obra) {
-  const d = obra.h3 || h3Default();
+  const raw = obra.h3 || h3Default();
+  const d = {
+    ...raw,
+    materiales: mergeMateriales(raw.materiales),
+    perifericos: mergePerifericos(raw.perifericos),
+    escaladores: mergeEscaladores(raw.escaladores),
+    reductores: mergeReductores(raw.reductores)
+  };
   const calc = h3CostoCalcular(d);
 
-  const materialesRows = d.materiales.map((m, i) => `
-    <tr>
-      <td>${escapeHtml(m.categoria||'')}</td>
-      <td>${escapeHtml(m.insumo)}<div class="small-note">${escapeHtml(m.proveedor||'')}</div></td>
-      <td class="num"><input type="number" step="any" id="mat_unmt2_${i}" value="${m.unMt2}" style="width:70px;"></td>
-      <td>${escapeHtml(m.unidad||'')}</td>
-      <td class="num"><input type="number" step="any" id="mat_costo_${i}" value="${m.costoUn}" style="width:80px;"></td>
-      <td class="num">$${((parseFloat(m.unMt2)||0)*(parseFloat(m.costoUn)||0)).toFixed(2)}</td>
-      <td style="text-align:center;"><input type="checkbox" id="mat_inc_${i}" ${m.incluye?'checked':''} onchange="refreshH3()"></td>
+  const tipoSeleccionadoExiste = (MAESTRO.tipos || []).some(t => t.id === d.tipoColocacionId);
+
+  const materialesRows = d.materiales.map(m => `
+    <tr ${m._inactivo ? 'style="opacity:0.55;"' : ''}>
+      <td>${escapeHtml(m.categoria || '')}</td>
+      <td>${escapeHtml(m.insumo)}${m._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(m.proveedor || '')}</div></td>
+      <td class="num"><input type="number" step="any" id="mat_unmt2_${m.id}" value="${m.unMt2}" style="width:70px;"></td>
+      <td>${escapeHtml(m.unidad || '')}</td>
+      <td class="num"><input type="number" step="any" id="mat_costo_${m.id}" value="${m.costoUn}" style="width:80px;"></td>
+      <td class="num">$${((parseFloat(m.unMt2) || 0) * (parseFloat(m.costoUn) || 0)).toFixed(2)}</td>
+      <td style="text-align:center;"><input type="checkbox" id="mat_inc_${m.id}" ${m.incluye ? 'checked' : ''} onchange="refreshH3()"></td>
     </tr>
   `).join('');
 
-  const perifericosRows = d.perifericos.map((p, i) => `
-    <tr>
-      <td>${escapeHtml(p.insumo)}<div class="small-note">${escapeHtml(p.proveedor||'')}</div></td>
-      <td>${escapeHtml(p.unidad||'')}</td>
-      <td class="num"><input type="number" step="any" id="per_costo_${i}" value="${p.costoUn}" style="width:80px;"></td>
-      <td class="num"><input type="number" step="any" id="per_cant_${i}" value="${p.cantidad}" style="width:70px;" onchange="refreshH3()"></td>
-      <td style="text-align:center;"><input type="checkbox" id="per_inc_${i}" ${p.incluye?'checked':''} onchange="refreshH3()"></td>
+  const perifericosRows = d.perifericos.map(p => `
+    <tr ${p._inactivo ? 'style="opacity:0.55;"' : ''}>
+      <td>${escapeHtml(p.insumo)}${p._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(p.proveedor || '')}</div></td>
+      <td>${escapeHtml(p.unidad || '')}</td>
+      <td class="num"><input type="number" step="any" id="per_costo_${p.id}" value="${p.costoUn}" style="width:80px;"></td>
+      <td class="num"><input type="number" step="any" id="per_cant_${p.id}" value="${p.cantidad}" style="width:70px;" onchange="refreshH3()"></td>
+      <td style="text-align:center;"><input type="checkbox" id="per_inc_${p.id}" ${p.incluye ? 'checked' : ''} onchange="refreshH3()"></td>
     </tr>
   `).join('');
 
-  const escaladoresRows = d.escaladores.map((e, i) => `
-    <tr>
-      <td>${escapeHtml(e.condicion)}</td>
-      <td class="num">${(e.pct*100).toFixed(0)}%</td>
-      <td style="text-align:center;"><input type="checkbox" id="esc_aplica_${i}" ${e.aplica?'checked':''} onchange="refreshH3()"></td>
+  const escaladoresRows = d.escaladores.map(e => `
+    <tr ${e._inactivo ? 'style="opacity:0.55;"' : ''}>
+      <td>${escapeHtml(e.condicion)}${e._inactivo ? ' <span class="small-note">(dado de baja)</span>' : ''}</td>
+      <td class="num">${(e.pct * 100).toFixed(0)}%</td>
+      <td style="text-align:center;"><input type="checkbox" id="esc_aplica_${e.id}" ${e.aplica ? 'checked' : ''} onchange="refreshH3()"></td>
     </tr>
   `).join('');
 
-  const reductoresRows = d.reductores.map((r, i) => `
-    <tr>
-      <td>${escapeHtml(r.condicion)}</td>
-      <td class="num">${(r.pct*100).toFixed(1)}%</td>
-      <td style="text-align:center;"><input type="checkbox" id="red_aplica_${i}" ${r.aplica?'checked':''} onchange="refreshH3()"></td>
+  const reductoresRows = d.reductores.map(r => `
+    <tr ${r._inactivo ? 'style="opacity:0.55;"' : ''}>
+      <td>${escapeHtml(r.condicion)}${r._inactivo ? ' <span class="small-note">(dado de baja)</span>' : ''}</td>
+      <td class="num">${(r.pct * 100).toFixed(1)}%</td>
+      <td style="text-align:center;"><input type="checkbox" id="red_aplica_${r.id}" ${r.aplica ? 'checked' : ''} onchange="refreshH3()"></td>
     </tr>
   `).join('');
 
   const compras = d.materiales.filter(m => m.incluye).map(m => ({
-    ...m, cantidad: Math.round((parseFloat(m.unMt2)||0) * calc.mt2 * 100)/100,
-    total: (parseFloat(m.unMt2)||0) * calc.mt2 * (parseFloat(m.costoUn)||0)
+    ...m, cantidad: Math.round((parseFloat(m.unMt2) || 0) * calc.mt2 * 100) / 100,
+    total: (parseFloat(m.unMt2) || 0) * calc.mt2 * (parseFloat(m.costoUn) || 0)
   }));
   const comprasServicios = d.perifericos.filter(p => p.incluye).map(p => ({
-    ...p, total: (parseFloat(p.costoUn)||0) * (parseFloat(p.cantidad)||0)
+    ...p, total: (parseFloat(p.costoUn) || 0) * (parseFloat(p.cantidad) || 0)
   }));
-  const totalCompras = compras.reduce((s,m)=>s+m.total,0) + comprasServicios.reduce((s,p)=>s+p.total,0);
+  const totalCompras = compras.reduce((s, m) => s + m.total, 0) + comprasServicios.reduce((s, p) => s + p.total, 0);
 
   return `
     <div class="section">
@@ -186,6 +218,7 @@ function renderH3(obra) {
         <tbody>${materialesRows}</tbody>
       </table>
       <div class="small-note" style="margin-top:10px;">Total materiales x Mt²: <strong>$${calc.costoMateriales.toFixed(2)}</strong></div>
+      ${currentUser.rol === 'gerencia' ? `<div class="small-note" style="margin-top:6px;">¿Falta un material o cambió un precio? Se edita desde <span class="btn-ghost" style="padding:0;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span>.</div>` : ''}
     </div>
 
     <div class="section">
@@ -202,7 +235,8 @@ function renderH3(obra) {
       <div class="field-grid">
         <div class="field"><label>Tipo de colocación</label>
           <select id="h3_tipoColocacion" onchange="refreshH3()">
-            ${H3_TIPOS_COLOCACION.map((t,i) => `<option value="${i}" ${d.tipoColocacionIdx==i?'selected':''}>${t.tipo} ($${t.costoMt2}/m²)</option>`).join('')}
+            ${(MAESTRO.tipos || []).map(t => `<option value="${t.id}" ${d.tipoColocacionId === t.id ? 'selected' : ''}>${escapeHtml(t.tipo)} ($${t.costoMt2}/m²)</option>`).join('')}
+            ${!tipoSeleccionadoExiste && d.tipoColocacionId ? `<option value="${escapeAttr(d.tipoColocacionId)}" selected>(tipo dado de baja del Maestro — elegí uno nuevo)</option>` : ''}
           </select>
         </div>
         <div class="field"><label>Costo capataz/día</label><input type="number" id="h3_costoCapataz" value="${d.costoCapataz}"></div>
@@ -218,7 +252,7 @@ function renderH3(obra) {
         <thead><tr><th>Condición</th><th>% Ampliación</th><th>Aplica</th></tr></thead>
         <tbody>${escaladoresRows}</tbody>
       </table>
-      <div class="small-note" style="margin-top:10px;">Total ampliación aplicada: <strong>${(calc.totalAmpliacion*100).toFixed(1)}%</strong></div>
+      <div class="small-note" style="margin-top:10px;">Total ampliación aplicada: <strong>${(calc.totalAmpliacion * 100).toFixed(1)}%</strong></div>
     </div>
 
     <div class="section">
@@ -227,13 +261,13 @@ function renderH3(obra) {
         <thead><tr><th>Condición</th><th>% Reducción</th><th>Aplica</th></tr></thead>
         <tbody>${reductoresRows}</tbody>
       </table>
-      <div class="small-note" style="margin-top:10px;">Total reducción aplicada: <strong>${(calc.totalReduccion*100).toFixed(1)}%</strong></div>
+      <div class="small-note" style="margin-top:10px;">Total reducción aplicada: <strong>${(calc.totalReduccion * 100).toFixed(1)}%</strong></div>
     </div>
 
     <div class="section">
       <div class="section-title">Fiscal técnico</div>
       <div class="check-row">
-        <input type="checkbox" id="h3_fiscalIncluido" ${d.fiscalIncluido?'checked':''} onchange="refreshH3()">
+        <input type="checkbox" id="h3_fiscalIncluido" ${d.fiscalIncluido ? 'checked' : ''} onchange="refreshH3()">
         <div class="check-text">Incluir fiscal técnico en esta obra (15% sobre MO, mínimo USD 300)</div>
       </div>
       <div class="small-note" style="margin-top:8px;">Fiscal x Mt²: <strong>$${calc.fiscalMt2.toFixed(2)}</strong> — Total: <strong>$${calc.fiscalTotal.toFixed(2)}</strong></div>
@@ -252,8 +286,8 @@ function renderH3(obra) {
       <table class="calc-table">
         <thead><tr><th>Insumo</th><th>Unidad</th><th>Cantidad</th><th>Costo x Un</th><th>Total</th></tr></thead>
         <tbody>
-          ${compras.map(m => `<tr><td>${escapeHtml(m.insumo)}</td><td>${escapeHtml(m.unidad||'')}</td><td class="num">${m.cantidad}</td><td class="num">$${(parseFloat(m.costoUn)||0).toFixed(2)}</td><td class="num">$${m.total.toFixed(2)}</td></tr>`).join('')}
-          ${comprasServicios.map(p => `<tr><td>${escapeHtml(p.insumo)} <span class="small-note">(servicio)</span></td><td>${escapeHtml(p.unidad||'')}</td><td class="num">${p.cantidad}</td><td class="num">$${(parseFloat(p.costoUn)||0).toFixed(2)}</td><td class="num">$${p.total.toFixed(2)}</td></tr>`).join('')}
+          ${compras.map(m => `<tr><td>${escapeHtml(m.insumo)}</td><td>${escapeHtml(m.unidad || '')}</td><td class="num">${m.cantidad}</td><td class="num">$${(parseFloat(m.costoUn) || 0).toFixed(2)}</td><td class="num">$${m.total.toFixed(2)}</td></tr>`).join('')}
+          ${comprasServicios.map(p => `<tr><td>${escapeHtml(p.insumo)} <span class="small-note">(servicio)</span></td><td>${escapeHtml(p.unidad || '')}</td><td class="num">${p.cantidad}</td><td class="num">$${(parseFloat(p.costoUn) || 0).toFixed(2)}</td><td class="num">$${p.total.toFixed(2)}</td></tr>`).join('')}
           <tr class="total-row"><td colspan="4">TOTAL PEDIDO DE COMPRAS</td><td class="num">$${totalCompras.toFixed(2)}</td></tr>
         </tbody>
       </table>
@@ -268,7 +302,7 @@ function renderH3(obra) {
         <tbody>
           <tr><td>Colocadores</td><td class="num">$${calc.moAjustada.toFixed(0)}</td><td class="num">${calc.mt2}</td><td class="num">$${calc.totalColocadores.toFixed(0)}</td></tr>
           <tr><td>Fiscal técnico</td><td class="num">$${calc.fiscalMt2.toFixed(2)}</td><td class="num">${calc.mt2}</td><td class="num">$${calc.fiscalTotal.toFixed(2)}</td></tr>
-          <tr class="total-row"><td colspan="3">TOTAL A PAGAR</td><td class="num">$${(calc.totalColocadores+calc.fiscalTotal).toFixed(2)}</td></tr>
+          <tr class="total-row"><td colspan="3">TOTAL A PAGAR</td><td class="num">$${(calc.totalColocadores + calc.fiscalTotal).toFixed(2)}</td></tr>
         </tbody>
       </table>
       <div class="small-note" style="margin-top:8px;">⚠ Los montos de colocadores incluyen escaladores y reducciones activos. El fiscal cobra mínimo USD 300 por obra.</div>
@@ -277,7 +311,7 @@ function renderH3(obra) {
     <div class="section">
       <div class="section-title">Estado del hito</div>
       <div class="check-row">
-        <input type="checkbox" id="h3_completo" ${d._completo?'checked':''} onchange="scheduleAutosave()">
+        <input type="checkbox" id="h3_completo" ${d._completo ? 'checked' : ''} onchange="scheduleAutosave()">
         <div class="check-text">Marcar H3 · Costos y compras como completo</div>
       </div>
     </div>
@@ -291,32 +325,37 @@ function refreshH3() {
 
 function collectH3() {
   const prev = currentObraData.h3 || h3Default();
-  const materiales = H3_MATERIALES_DEFAULT.map((base, i) => ({
-    ...base,
-    unMt2: parseFloat(val(`mat_unmt2_${i}`)) || 0,
-    costoUn: parseFloat(val(`mat_costo_${i}`)) || 0,
-    incluye: document.getElementById(`mat_inc_${i}`) ? document.getElementById(`mat_inc_${i}`).checked : base.incluye
+  const prevMateriales = mergeMateriales(prev.materiales);
+  const prevPerifericos = mergePerifericos(prev.perifericos);
+  const prevEscaladores = mergeEscaladores(prev.escaladores);
+  const prevReductores = mergeReductores(prev.reductores);
+
+  const materiales = prevMateriales.map(m => ({
+    id: m.id, categoria: m.categoria, insumo: m.insumo, proveedor: m.proveedor, calculo: m.calculo, unidad: m.unidad,
+    unMt2: document.getElementById(`mat_unmt2_${m.id}`) ? (parseFloat(val(`mat_unmt2_${m.id}`)) || 0) : m.unMt2,
+    costoUn: document.getElementById(`mat_costo_${m.id}`) ? (parseFloat(val(`mat_costo_${m.id}`)) || 0) : m.costoUn,
+    incluye: document.getElementById(`mat_inc_${m.id}`) ? document.getElementById(`mat_inc_${m.id}`).checked : m.incluye
   }));
-  const perifericos = H3_PERIFERICOS_DEFAULT.map((base, i) => ({
-    ...base,
-    costoUn: parseFloat(val(`per_costo_${i}`)) || 0,
-    cantidad: parseFloat(val(`per_cant_${i}`)) || 0,
-    incluye: document.getElementById(`per_inc_${i}`) ? document.getElementById(`per_inc_${i}`).checked : base.incluye
+  const perifericos = prevPerifericos.map(p => ({
+    id: p.id, insumo: p.insumo, proveedor: p.proveedor, unidad: p.unidad,
+    costoUn: document.getElementById(`per_costo_${p.id}`) ? (parseFloat(val(`per_costo_${p.id}`)) || 0) : p.costoUn,
+    cantidad: document.getElementById(`per_cant_${p.id}`) ? (parseFloat(val(`per_cant_${p.id}`)) || 0) : p.cantidad,
+    incluye: document.getElementById(`per_inc_${p.id}`) ? document.getElementById(`per_inc_${p.id}`).checked : p.incluye
   }));
-  const escaladores = H3_ESCALADORES_DEFAULT.map((base, i) => ({
-    ...base,
-    aplica: document.getElementById(`esc_aplica_${i}`) ? document.getElementById(`esc_aplica_${i}`).checked : base.aplica
+  const escaladores = prevEscaladores.map(e => ({
+    id: e.id, condicion: e.condicion, pct: e.pct,
+    aplica: document.getElementById(`esc_aplica_${e.id}`) ? document.getElementById(`esc_aplica_${e.id}`).checked : e.aplica
   }));
-  const reductores = H3_REDUCTORES_DEFAULT.map((base, i) => ({
-    ...base,
-    aplica: document.getElementById(`red_aplica_${i}`) ? document.getElementById(`red_aplica_${i}`).checked : base.aplica
+  const reductores = prevReductores.map(r => ({
+    id: r.id, condicion: r.condicion, pct: r.pct,
+    aplica: document.getElementById(`red_aplica_${r.id}`) ? document.getElementById(`red_aplica_${r.id}`).checked : r.aplica
   }));
 
   return {
     cliente: val('h3_cliente') || prev.cliente,
     mt2: val('h3_mt2') || prev.mt2,
     materiales, perifericos, escaladores, reductores,
-    tipoColocacionIdx: document.getElementById('h3_tipoColocacion') ? parseInt(document.getElementById('h3_tipoColocacion').value) : prev.tipoColocacionIdx,
+    tipoColocacionId: document.getElementById('h3_tipoColocacion') ? document.getElementById('h3_tipoColocacion').value : prev.tipoColocacionId,
     costoCapataz: parseFloat(val('h3_costoCapataz')) || prev.costoCapataz,
     costoAyudante: parseFloat(val('h3_costoAyudante')) || prev.costoAyudante,
     cantAyudantes: parseFloat(val('h3_cantAyudantes')) || prev.cantAyudantes,

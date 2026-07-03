@@ -4,12 +4,33 @@
 // reductores) para que un colocador pueda estimar cuánto le corresponde
 // cobrar por una obra, sin necesitar código de acceso ni ver datos de
 // obras reales. No calcula margen ni precio a cliente (eso es H4/Gerencia).
+//
+// Los tipos de trabajo, escaladores y reductores YA NO están hardcodeados
+// acá: se piden al backend (action=getMaestroPublico, sin token) que sólo
+// devuelve esos tres — nunca materiales, periféricos ni márgenes.
 // ============================================
 
-function renderCalculadoraPublica() {
+let CALC_PUBLICA_DATA = null;
+
+async function renderCalculadoraPublica() {
   const app = document.getElementById('app');
   document.getElementById('connStatus').textContent = '';
   document.getElementById('topbarUser').innerHTML = `<span class="btn-ghost" onclick="renderLogin()">← Volver al login</span>`;
+
+  app.innerHTML = `<div style="max-width:640px; margin:0 auto;"><div class="empty-state">Cargando calculadora...</div></div>`;
+
+  if (!CALC_PUBLICA_DATA) {
+    try {
+      const res = await API.getMaestroPublico();
+      if (!res.ok) throw new Error(res.error || 'No se pudo cargar la calculadora');
+      CALC_PUBLICA_DATA = res;
+    } catch (err) {
+      app.innerHTML = `<div class="empty-state"><div class="big">No se pudo cargar la calculadora</div><p>${escapeHtml(err.message)}</p></div>`;
+      return;
+    }
+  }
+
+  const { tipos, escaladores, reductores } = CALC_PUBLICA_DATA;
 
   app.innerHTML = `
     <div style="max-width:640px; margin:0 auto;">
@@ -30,23 +51,23 @@ function renderCalculadoraPublica() {
       <div class="section">
         <div class="section-title">Tipo de trabajo — elegí uno solo</div>
         <select id="calc_tipo" onchange="refreshCalcPublica()">
-          ${H3_TIPOS_COLOCACION.map((t, i) => `<option value="${i}" ${i === 1 ? 'selected' : ''}>${escapeHtml(t.tipo)} ($${t.costoMt2}/m²)</option>`).join('')}
+          ${tipos.map((t, i) => `<option value="${escapeAttr(t.id)}" ${i === 1 ? 'selected' : ''}>${escapeHtml(t.tipo)} ($${t.costoMt2}/m²)</option>`).join('')}
         </select>
       </div>
 
       <div class="section">
         <div class="section-title">Condiciones de obra — marcá todas las que apliquen</div>
-        ${H3_ESCALADORES_DEFAULT.map((e, i) => `
+        ${escaladores.map(e => `
           <div class="check-row">
-            <input type="checkbox" id="calc_esc_${i}" onchange="refreshCalcPublica()">
-            <div class="check-text">${escaparCondicion(e.condicion)} <span style="color:var(--warn);">(+${(e.pct * 100).toFixed(0)}%)</span></div>
+            <input type="checkbox" id="calc_esc_${e.id}" onchange="refreshCalcPublica()">
+            <div class="check-text">${escapeHtml(e.condicion)} <span style="color:var(--warn);">(+${(e.pct * 100).toFixed(0)}%)</span></div>
           </div>
         `).join('')}
         <div class="small-note" style="margin:14px 0 4px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Reducciones por volumen</div>
-        ${H3_REDUCTORES_DEFAULT.map((r, i) => `
+        ${reductores.map(r => `
           <div class="check-row">
-            <input type="checkbox" id="calc_red_${i}" onchange="refreshCalcPublica()">
-            <div class="check-text">${escaparCondicion(r.condicion)} <span style="color:var(--ok);">(${(r.pct * 100).toFixed(1)}%)</span></div>
+            <input type="checkbox" id="calc_red_${r.id}" onchange="refreshCalcPublica()">
+            <div class="check-text">${escapeHtml(r.condicion)} <span style="color:var(--ok);">(${(r.pct * 100).toFixed(1)}%)</span></div>
           </div>
         `).join('')}
         <div class="small-note" style="margin-top:10px;">⚠ Marcá solo un tipo de trabajo. La ampliación total está topeada en 40%, igual que en el sistema interno.</div>
@@ -66,29 +87,28 @@ function renderCalculadoraPublica() {
   refreshCalcPublica();
 }
 
-// Los nombres de condiciones vienen con "3er Cordón" etc. — escapeHtml alcanza,
-// pero se usa un nombre propio acá para dejar en claro que es texto fijo interno, no del usuario.
-function escaparCondicion(str) { return escapeHtml(str); }
-
 function refreshCalcPublica() {
+  if (!CALC_PUBLICA_DATA) return;
+  const { tipos, escaladores, reductores } = CALC_PUBLICA_DATA;
+
   const mt2 = parseFloat(document.getElementById('calc_mt2').value) || 0;
-  const tipoIdx = parseInt(document.getElementById('calc_tipo').value, 10) || 0;
-  const tipo = H3_TIPOS_COLOCACION[tipoIdx] || H3_TIPOS_COLOCACION[0];
+  const tipoId = document.getElementById('calc_tipo').value;
+  const tipo = tipos.find(t => t.id === tipoId) || tipos[0] || { costoMt2: 0 };
 
   let totalAmpliacion = 0;
-  H3_ESCALADORES_DEFAULT.forEach((e, i) => {
-    const chk = document.getElementById('calc_esc_' + i);
-    if (chk && chk.checked) totalAmpliacion += e.pct;
+  escaladores.forEach(e => {
+    const chk = document.getElementById('calc_esc_' + e.id);
+    if (chk && chk.checked) totalAmpliacion += parseFloat(e.pct) || 0;
   });
   totalAmpliacion = Math.min(totalAmpliacion, 0.40);
 
   let totalReduccion = 0;
-  H3_REDUCTORES_DEFAULT.forEach((r, i) => {
-    const chk = document.getElementById('calc_red_' + i);
-    if (chk && chk.checked) totalReduccion += r.pct;
+  reductores.forEach(r => {
+    const chk = document.getElementById('calc_red_' + r.id);
+    if (chk && chk.checked) totalReduccion += parseFloat(r.pct) || 0;
   });
 
-  const ajustado = tipo.costoMt2 * (1 + totalAmpliacion + totalReduccion);
+  const ajustado = (parseFloat(tipo.costoMt2) || 0) * (1 + totalAmpliacion + totalReduccion);
   const total = ajustado * mt2;
 
   document.getElementById('calc_base').textContent = '$' + Math.round(tipo.costoMt2);

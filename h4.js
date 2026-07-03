@@ -2,8 +2,10 @@
 // H4 — FINANCIERO (solo Gerencia)
 // Todo lo que se ve acá viene YA CALCULADO desde Code.gs (backend).
 // A propósito este archivo no contiene fórmulas de margen ni tablas de
-// segmentos: eso vive únicamente en el servidor para que un colocador o
-// cualquier visitante que abra el código fuente del sitio no pueda verlo.
+// segmentos: eso vive únicamente en el servidor (y en las pestañas
+// Maestro_Tipos / Maestro_Segmentos del Sheet, editables por Gerencia desde
+// ⚙ Precios y Materiales) para que un colocador o cualquier visitante que
+// abra el código fuente del sitio no pueda verlo.
 // ============================================
 
 function renderH4(obra) {
@@ -21,8 +23,8 @@ function renderH4(obra) {
     <div class="section">
       <div class="section-title">Segmento de precio</div>
       <div class="segmento-tabs">
-        ${f.segmentos.map((s, i) => `
-          <div class="segmento-chip ${f.segmentoActivo===i?'selected':''}" onclick="setSegmentoH4(${i})">
+        ${f.segmentos.map(s => `
+          <div class="segmento-chip ${f.segmentoId===s.id?'selected':''}" onclick="setSegmentoH4('${s.id}')">
             <div class="seg-name">${escapeHtml(s.nombre)}</div>
             <div class="seg-price">$${s.precioMt2.toFixed(0)}</div>
           </div>
@@ -49,7 +51,7 @@ function renderH4(obra) {
           <tr class="total-row"><td>Rentabilidad Kokkai</td><td class="num">$${f.rentabilidadMt2.toFixed(2)}</td><td class="num">$${f.rentabilidadTotal.toFixed(2)}</td></tr>
         </tbody>
       </table>
-      <div class="small-note" style="margin-top:8px;">Los márgenes por segmento se calculan y almacenan en el servidor. Cambiar de segmento acá actualiza el precio guardado para esta obra.</div>
+      <div class="small-note" style="margin-top:8px;">Los márgenes por segmento se calculan en el servidor a partir del Maestro de Precios. Cambiar de segmento acá actualiza el precio guardado para esta obra. Para cambiar los % de margen de cada segmento, usá <span class="btn-ghost" style="padding:0;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span>.</div>
     </div>
 
     <div class="section">
@@ -64,7 +66,7 @@ function renderH4(obra) {
 
 async function toggleCompletoH4(checked) {
   setSaveStatus('Guardando...', '');
-  const res = await API.saveHito(currentObraData.obraId, 'h4', { segmentoActivo: currentObraData.h4.segmentoActivo, _completo: checked }, null, currentUser.token);
+  const res = await API.saveHito(currentObraData.obraId, 'h4', { segmentoId: currentObraData.h4.segmentoId, _completo: checked }, null, currentUser.token);
   if (res.ok) {
     await reloadObra();
     setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
@@ -73,9 +75,9 @@ async function toggleCompletoH4(checked) {
   }
 }
 
-async function setSegmentoH4(i) {
+async function setSegmentoH4(segmentoId) {
   setSaveStatus('Guardando...', '');
-  const res = await API.saveHito(currentObraData.obraId, 'h4', { segmentoActivo: i, _completo: currentObraData.h4.completo }, null, currentUser.token);
+  const res = await API.saveHito(currentObraData.obraId, 'h4', { segmentoId, _completo: currentObraData.h4.completo }, null, currentUser.token);
   if (res.ok) {
     await reloadObra();
     setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');

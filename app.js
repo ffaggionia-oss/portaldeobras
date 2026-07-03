@@ -6,6 +6,23 @@ let currentUser = null; // { token, nombre, rol }
 let currentObraData = null;
 let currentHito = 'h1';
 let saveTimer = null;
+let MAESTRO = null; // tipos, materiales, perifericos, escaladores, reductores — Maestro de Precios (H3.js/H4.js lo usan)
+
+// Trae el Maestro de Precios visible para el rol actual. Colocador no ve H3,
+// así que no necesita nada acá. Se llama al loguearse y cada vez que
+// Gerencia guarda un cambio en el panel de administración.
+async function cargarMaestro() {
+  if (!currentUser || currentUser.rol === 'colocador') {
+    MAESTRO = { tipos: [], materiales: [], perifericos: [], escaladores: [], reductores: [] };
+    return;
+  }
+  try {
+    const res = await API.getMaestro(currentUser.token);
+    MAESTRO = res.ok ? res : { tipos: [], materiales: [], perifericos: [], escaladores: [], reductores: [] };
+  } catch (err) {
+    MAESTRO = { tipos: [], materiales: [], perifericos: [], escaladores: [], reductores: [] };
+  }
+}
 
 const ROLE_LABELS = {
   colocador: 'Colocador',
@@ -113,6 +130,7 @@ async function intentarLogin() {
   if (res.ok) {
     currentUser = { token, nombre: res.nombre, rol: res.rol };
     localStorage.setItem('kokkai_token', token);
+    await cargarMaestro();
     renderTopbarUser();
     renderHome();
   } else {
@@ -133,6 +151,7 @@ function renderTopbarUser() {
   if (!el || !currentUser) return;
   el.innerHTML = `
     <span>${escapeHtml(currentUser.nombre)} · ${escapeHtml(ROLE_LABELS[currentUser.rol] || currentUser.rol)}</span>
+    ${currentUser.rol === 'gerencia' ? `<span class="btn-ghost" style="margin-left:8px;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span>` : ''}
     <span class="btn-ghost" style="margin-left:8px;" onclick="cerrarSesion()">Salir</span>
   `;
 }
@@ -143,6 +162,7 @@ async function initApp() {
   const res = await API.login(savedToken);
   if (res.ok) {
     currentUser = { token: savedToken, nombre: res.nombre, rol: res.rol };
+    await cargarMaestro();
     renderTopbarUser();
     renderHome();
   } else {

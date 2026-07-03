@@ -18,6 +18,16 @@
  * El "token" es simplemente una clave de acceso que vos definís para cada
  * persona (ej: "SANDRA2026"). Se la compartís por privado, no por el link
  * del sitio.
+ *
+ * MAESTRO DE PRECIOS (nuevo):
+ * Los precios de tipos de colocación, materiales, periféricos, escaladores,
+ * reductores y segmentos de margen viven en pestañas "Maestro_*" del Sheet.
+ * Se crean y siembran solas la primera vez que se piden. Gerencia las edita
+ * desde el panel "⚙ Precios y Materiales" del portal — no hace falta tocar
+ * código para cambiar un precio o dar de alta un producto nuevo.
+ * IMPORTANTE: después de instalar este Code.gs por primera vez, correr UNA
+ * VEZ (a mano, desde el editor) la función migrarAMaestroV3_() para que las
+ * obras que ya tenían H3/H4 cargado usen los mismos IDs del Maestro.
  */
 
 const SHEET_NAME = 'Obras';
@@ -26,27 +36,6 @@ const LOGS_SHEET_NAME = 'Logs';
 const HEADERS = ['obraId', 'cliente', 'estado', 'fechaCreacion', 'fechaActualizacion', 'h1_json', 'h2_json', 'h3_json', 'h4_json', 'h5_json', 'fotos_json', 'eliminada', 'codigo'];
 const COL = { obraId:1, cliente:2, estado:3, fechaCreacion:4, fechaActualizacion:5, h1:6, h2:7, h3:8, h4:9, h5:10, fotos:11, eliminada:12, codigo:13 };
 const DRIVE_ROOT_FOLDER_NAME = 'Kokkai Obras - Archivos';
-
-// ---- Tablas usadas SOLO server-side para el cálculo financiero (H4) ----
-// No se exponen nunca al frontend en texto plano; sólo se devuelve el resultado calculado.
-const H3_TIPOS_COLOCACION = [
-  { tipo:'Imprimación de Muro Previo', costoMt2:5 },
-  { tipo:'Colocación de Revestimiento', costoMt2:20 },
-  { tipo:'Colocación de Decks Sobre Carpeta Directa', costoMt2:20 },
-  { tipo:'Colocación de Decks + Estructura Galv./Madera', costoMt2:38 },
-  { tipo:'Remoción Deck Existente', costoMt2:5 },
-  { tipo:'Remoción Piso Existente', costoMt2:9 },
-  { tipo:'Colocación Piso Pegado + Zócalos', costoMt2:16 },
-  { tipo:'Colocación Piso Flotante + Zócalos', costoMt2:14 }
-];
-
-const H3_SEGMENTOS = [
-  { nombre:'PREMIUM +', margen:0.50 },
-  { nombre:'PREMIUM', margen:0.45 },
-  { nombre:'MEDIUM', margen:0.40 },
-  { nombre:'MÍNIMO', margen:0.35 },
-  { nombre:'MUY MÍNIMO', margen:0.30 }
-];
 
 // ---- Roles: qué hitos puede ver/editar cada rol ----
 const ROLE_ACCESS = {
@@ -59,6 +48,169 @@ const ROLES_QUE_CREAN_OBRA = ['compras_admin', 'project_manager', 'gerencia'];
 
 function puedeVer_(rol, hito) {
   return (ROLE_ACCESS[rol] || []).indexOf(hito) !== -1;
+}
+
+// ============================================
+// MAESTRO DE PRECIOS
+// ============================================
+// Valores "semilla": SOLO se usan para poblar las pestañas Maestro_* la
+// primera vez que se crean, y como respaldo si una obra vieja todavía no
+// fue migrada. Una vez creado el Sheet, la fuente de verdad es el Sheet,
+// no estas constantes.
+const SEED_TIPOS = [
+  { id:'tip01', tipo:'Imprimación de Muro Previo', costoMt2:5 },
+  { id:'tip02', tipo:'Colocación de Revestimiento', costoMt2:20 },
+  { id:'tip03', tipo:'Colocación de Decks Sobre Carpeta Directa', costoMt2:20 },
+  { id:'tip04', tipo:'Colocación de Decks + Estructura Galv./Madera', costoMt2:38 },
+  { id:'tip05', tipo:'Remoción Deck Existente', costoMt2:5 },
+  { id:'tip06', tipo:'Remoción Piso Existente', costoMt2:9 },
+  { id:'tip07', tipo:'Colocación Piso Pegado + Zócalos', costoMt2:16 },
+  { id:'tip08', tipo:'Colocación Piso Flotante + Zócalos', costoMt2:14 }
+];
+
+const SEED_MATERIALES = [
+  { id:'mat01', categoria:'Revestimientos', insumo:'Perfil PGO 37 x 0,94 mm x 6,00 mts', proveedor:'CMP / EnSeco', calculo:'', unMt2:3, unidad:'Mt/L', costoUn:2.80 },
+  { id:'mat02', categoria:'Revestimientos', insumo:'Perfil PGO 22 x 0,94 mm x 3,00 mts', proveedor:'CMP / EnSeco', calculo:'', unMt2:3, unidad:'Mt/L', costoUn:2.05 },
+  { id:'mat03', categoria:'Revestimientos', insumo:'Pino CCA 1x3', proveedor:'Maderera Newton', calculo:'', unMt2:3, unidad:'Mt/L', costoUn:2.00 },
+  { id:'mat04', categoria:'Revestimientos', insumo:'Pino CCA 2x2', proveedor:'Maderera Newton', calculo:'', unMt2:3, unidad:'Mt/L', costoUn:2.00 },
+  { id:'mat05', categoria:'Revestimientos', insumo:'Tornillo Ø8 × 70 mm + Tarugo Nylon 8 (Par)', proveedor:'Bulonera Tigre', calculo:'', unMt2:3, unidad:'Pares', costoUn:0.03 },
+  { id:'mat06', categoria:'Revestimientos', insumo:'Tornillo Ø8 × 50 mm + Tarugo Nylon 8 (Par)', proveedor:'Bulonera Tigre', calculo:'', unMt2:3, unidad:'Pares', costoUn:0.03 },
+  { id:'mat07', categoria:'Revestimientos', insumo:'Tornillo KKTN Negro 5x40 mm', proveedor:'Rothoblaas', calculo:'', unMt2:25, unidad:'Unidades', costoUn:0.15 },
+  { id:'mat08', categoria:'Revestimientos', insumo:'Tornillo KKAN 5x40 mm', proveedor:'Rothoblaas', calculo:'', unMt2:25, unidad:'Unidades', costoUn:0.30 },
+  { id:'mat09', categoria:'Revestimientos', insumo:'Tornillo SHS 3,5x30 mm', proveedor:'Rothoblaas', calculo:'', unMt2:15, unidad:'Unidades', costoUn:0.05 },
+  { id:'mat10', categoria:'Revestimientos', insumo:'Grampas (cualquier tamaño)', proveedor:'Colocador', calculo:'', unMt2:0, unidad:'', costoUn:0 },
+  { id:'mat11', categoria:'Decks', insumo:'PCG Galvanizado 80x40x15x1,6 mm — Viguetas', proveedor:'En Seco / Mundo Hierro / CMP', calculo:'Cada 0,40 mt', unMt2:3, unidad:'Mt/L', costoUn:3.65 },
+  { id:'mat12', categoria:'Decks', insumo:'PCG Galvanizado 80x40x15x1,6 mm — Perímetro', proveedor:'En Seco / Mundo Hierro / CMP', calculo:'Perímetro/Mt²', unMt2:1.33, unidad:'Mt/L', costoUn:3.65 },
+  { id:'mat13', categoria:'Decks', insumo:'PCG Galvanizado 80x40x15x1,6 mm — Patas', proveedor:'En Seco / Mundo Hierro / CMP', calculo:'3,5 patas x Mt²', unMt2:0.52, unidad:'Mt/L', costoUn:3.65 },
+  { id:'mat14', categoria:'Decks', insumo:'PCG Galvanizado 80x40x15x1,6 mm — Bloqueos y desperdicio', proveedor:'En Seco / Mundo Hierro / CMP', calculo:'2 × Espacio Interno', unMt2:0.80, unidad:'Mt/L', costoUn:3.65 },
+  { id:'mat15', categoria:'Decks', insumo:'Clip Thermory T4 o PC Clips', proveedor:'Thermory', calculo:'3 U. x Mt/l', unMt2:25, unidad:'Unidades', costoUn:0.30 },
+  { id:'mat16', categoria:'Decks', insumo:'Tornillo P/Clip KKAN 4x30 mm', proveedor:'Rothoblaas / Bulonera', calculo:'', unMt2:25, unidad:'Unidades', costoUn:0.15 },
+  { id:'mat17', categoria:'Pisos', insumo:'Manta', proveedor:'MercadoLibre', calculo:'', unMt2:1, unidad:'Mt²', costoUn:2.21 },
+  { id:'mat18', categoria:'Pisos', insumo:'Nylon 200 Micrones', proveedor:'MercadoLibre', calculo:'', unMt2:1, unidad:'Mt²', costoUn:1.00 },
+  { id:'mat19', categoria:'Pisos', insumo:'Pegamento Elástico Base Xilano', proveedor:'Bona / Kekol / Mapei', calculo:'1 kg/mt²', unMt2:1, unidad:'Kg', costoUn:7.50 },
+  { id:'mat20', categoria:'Pisos', insumo:'Zócalo 10 cm', proveedor:'AlpaMat / Parky', calculo:'', unMt2:0.7, unidad:'Mt/l', costoUn:6.00 }
+];
+
+const SEED_PERIFERICOS = [
+  { id:'per01', insumo:'Transporte a Obra', proveedor:'Gargano', unidad:'Viaje', costoUn:250 },
+  { id:'per02', insumo:'Andamios — 2 cuerpos/mes + 3 tablones', proveedor:'Amaplac', unidad:'Total', costoUn:95 },
+  { id:'per03', insumo:'Andamios — 3 cuerpos/mes + 3 tablones', proveedor:'Amaplac', unidad:'Total', costoUn:120 },
+  { id:'per04', insumo:'Pintura Asfáltica al Agua Protex 400 Lt', proveedor:'Protex', unidad:'Tanque 400 lt', costoUn:300 },
+  { id:'per05', insumo:'Volquete', proveedor:'-', unidad:'Unidad', costoUn:70 },
+  { id:'per06', insumo:'Silicona PU 40', proveedor:'Unipega', unidad:'Pomo', costoUn:7 }
+];
+
+const SEED_ESCALADORES = [
+  { id:'esc01', condicion:'Desarraigo', pct:0.25 },
+  { id:'esc02', condicion:'Cieloraso con estructura', pct:0.12 },
+  { id:'esc03', condicion:'Trabajo en Altura', pct:0.12 },
+  { id:'esc04', condicion:'Acceso Difícil', pct:0.10 },
+  { id:'esc05', condicion:'Trabajo Nocturno', pct:0.15 },
+  { id:'esc06', condicion:'Extra Zona (3er Cordón)', pct:0.08 },
+  { id:'esc07', condicion:'Diseño Complejo', pct:0.10 },
+  { id:'esc08', condicion:'Obra < 20 mt²', pct:0.25 },
+  { id:'esc09', condicion:'Obra < 40 mt²', pct:0.15 }
+];
+
+const SEED_REDUCTORES = [
+  { id:'red01', condicion:'Obra 200–300 mt²', pct:-0.08 },
+  { id:'red02', condicion:'Obra 300–500 mt²', pct:-0.10 },
+  { id:'red03', condicion:'Obra 500–1000 mt²', pct:-0.125 }
+];
+
+const SEED_SEGMENTOS = [
+  { id:'seg01', nombre:'PREMIUM +', margen:0.50 },
+  { id:'seg02', nombre:'PREMIUM', margen:0.45 },
+  { id:'seg03', nombre:'MEDIUM', margen:0.40 },
+  { id:'seg04', nombre:'MÍNIMO', margen:0.35 },
+  { id:'seg05', nombre:'MUY MÍNIMO', margen:0.30 }
+];
+
+const MAESTRO_DEFS = {
+  tipos:       { sheetName:'Maestro_Tipos',       prefix:'tip', headers:['id','tipo','costoMt2','activo'],                                        seed: SEED_TIPOS },
+  materiales:  { sheetName:'Maestro_Materiales',  prefix:'mat', headers:['id','categoria','insumo','proveedor','calculo','unMt2','unidad','costoUn','activo'], seed: SEED_MATERIALES },
+  perifericos: { sheetName:'Maestro_Perifericos', prefix:'per', headers:['id','insumo','proveedor','unidad','costoUn','activo'],                   seed: SEED_PERIFERICOS },
+  escaladores: { sheetName:'Maestro_Escaladores', prefix:'esc', headers:['id','condicion','pct','activo'],                                         seed: SEED_ESCALADORES },
+  reductores:  { sheetName:'Maestro_Reductores',  prefix:'red', headers:['id','condicion','pct','activo'],                                         seed: SEED_REDUCTORES },
+  segmentos:   { sheetName:'Maestro_Segmentos',   prefix:'seg', headers:['id','nombre','margen','activo'],                                         seed: SEED_SEGMENTOS }
+};
+
+function getMaestroSheet_(tabla) {
+  const def = MAESTRO_DEFS[tabla];
+  if (!def) throw new Error('Tabla de maestro inválida: ' + tabla);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(def.sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(def.sheetName);
+    sheet.appendRow(def.headers);
+    sheet.setFrozenRows(1);
+    const filas = def.seed.map(item => def.headers.map(h => h === 'activo' ? true : (item[h] !== undefined ? item[h] : '')));
+    if (filas.length) sheet.getRange(2, 1, filas.length, def.headers.length).setValues(filas);
+  }
+  return sheet;
+}
+
+function leerMaestroTabla_(tabla, soloActivos) {
+  const def = MAESTRO_DEFS[tabla];
+  const sheet = getMaestroSheet_(tabla);
+  const data = sheet.getDataRange().getValues();
+  const headers = def.headers;
+  let rows = data.slice(1).filter(r => r[0]).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = r[i]; });
+    obj.activo = obj.activo !== false;
+    return obj;
+  });
+  if (soloActivos) rows = rows.filter(r => r.activo);
+  return rows;
+}
+
+function leerMaestroCompleto_(soloActivos) {
+  const out = {};
+  Object.keys(MAESTRO_DEFS).forEach(tabla => { out[tabla] = leerMaestroTabla_(tabla, soloActivos); });
+  return out;
+}
+
+function siguienteIdMaestro_(prefix, idsExistentes) {
+  let max = 0;
+  const re = new RegExp('^' + prefix + '(\\d+)$');
+  idsExistentes.forEach(id => {
+    const m = String(id).match(re);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return prefix + String(max + 1).padStart(2, '0');
+}
+
+// Reemplaza por completo el contenido de una tabla del Maestro. A los items
+// nuevos (sin id) se les asigna un id automáticamente. Nunca se borran filas
+// del Sheet en sí — lo que llega en `items` reemplaza todo, así que el
+// front manda siempre la tabla completa (activos + inactivos).
+function escribirMaestroTabla_(tabla, items, usuario) {
+  const def = MAESTRO_DEFS[tabla];
+  if (!def) throw new Error('Tabla de maestro inválida: ' + tabla);
+  if (!Array.isArray(items)) throw new Error('Items inválidos');
+
+  const sheet = getMaestroSheet_(tabla);
+  const idsExistentes = leerMaestroTabla_(tabla, false).map(r => r.id);
+
+  items.forEach(it => {
+    if (!it.id) {
+      const nuevo = siguienteIdMaestro_(def.prefix, idsExistentes);
+      it.id = nuevo;
+      idsExistentes.push(nuevo);
+    }
+  });
+
+  if (sheet.getLastRow() > 1) {
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, def.headers.length).clearContent();
+  }
+  const filas = items.map(it => def.headers.map(h => h === 'activo' ? (it.activo !== false) : (it[h] !== undefined ? it[h] : '')));
+  if (filas.length) sheet.getRange(2, 1, filas.length, def.headers.length).setValues(filas);
+
+  const logsSheet = getLogsSheet_();
+  logsSheet.appendRow(['-', 'maestro', 'editar tabla: ' + tabla + ' (' + items.length + ' items)', usuario, new Date().toISOString()]);
+
+  return items;
 }
 
 // ============================================
@@ -103,7 +255,7 @@ function getUsuario_(token) {
   return null;
 }
 
-// ---- Logs de impresión / descarga por obra + hito ----
+// ---- Logs de impresión / descarga / cambios de maestro ----
 function getLogsSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(LOGS_SHEET_NAME);
@@ -178,7 +330,10 @@ function eliminarCarpetaObra_(obraId) {
 }
 
 // ============================================
-// Cálculo financiero (H4) — vive sólo acá
+// Cálculo financiero (H4) — vive sólo acá.
+// Usa el Maestro de Precios (tipos y segmentos) en vez de constantes fijas,
+// con respaldo a las SEED_* para obras viejas que todavía no fueron
+// migradas a IDs del Maestro.
 // ============================================
 function h3CostoCalc_(d) {
   d = d || {};
@@ -190,15 +345,18 @@ function h3CostoCalc_(d) {
   let costoPerifericos = 0;
   (d.perifericos || []).forEach(p => { if (p.incluye && mt2 > 0) costoPerifericos += ((parseFloat(p.costoUn) || 0) * (parseFloat(p.cantidad) || 0)) / mt2; });
 
-  const tipo = H3_TIPOS_COLOCACION[d.tipoColocacionIdx] || H3_TIPOS_COLOCACION[0];
-  const moBase = tipo.costoMt2;
+  const tiposMaestro = leerMaestroTabla_('tipos', false);
+  let tipo = d.tipoColocacionId ? tiposMaestro.find(t => t.id === d.tipoColocacionId) : null;
+  if (!tipo && typeof d.tipoColocacionIdx === 'number') tipo = SEED_TIPOS[d.tipoColocacionIdx]; // obras no migradas
+  if (!tipo) tipo = tiposMaestro[0] || SEED_TIPOS[0];
+  const moBase = parseFloat(tipo.costoMt2) || 0;
 
   let totalAmpliacion = 0;
-  (d.escaladores || []).forEach(e => { if (e.aplica) totalAmpliacion += e.pct; });
+  (d.escaladores || []).forEach(e => { if (e.aplica) totalAmpliacion += parseFloat(e.pct) || 0; });
   totalAmpliacion = Math.min(totalAmpliacion, 0.40);
 
   let totalReduccion = 0;
-  (d.reductores || []).forEach(r => { if (r.aplica) totalReduccion += r.pct; });
+  (d.reductores || []).forEach(r => { if (r.aplica) totalReduccion += parseFloat(r.pct) || 0; });
 
   const moAjustada = moBase * (1 + totalAmpliacion + totalReduccion);
 
@@ -211,26 +369,32 @@ function h3CostoCalc_(d) {
   const costoTotalMt2 = costoMateriales + costoPerifericos + moAjustada + fiscalMt2;
 
   return {
-    mt2, costoMateriales, costoPerifericos, moAjustada, fiscalMt2, fiscalTotal, costoTotalMt2,
+    mt2, costoMateriales, costoPerifericos, moBase, totalAmpliacion, totalReduccion, moAjustada,
+    fiscalMt2, fiscalTotal, costoTotalMt2,
     totalMateriales: costoMateriales * mt2, totalPerifericos: costoPerifericos * mt2, totalColocadores: moAjustada * mt2
   };
 }
 
 function financiero_(h3data, h4data) {
   const costos = h3CostoCalc_(h3data);
-  const segmentoActivo = (h4data && typeof h4data.segmentoActivo === 'number') ? h4data.segmentoActivo : 2;
 
-  const segmentos = H3_SEGMENTOS.map(s => {
-    const precioMt2 = s.margen < 1 ? costos.costoTotalMt2 / (1 - s.margen) : 0;
-    return { nombre: s.nombre, margen: s.margen, precioMt2, totalObra: precioMt2 * costos.mt2 };
+  const segmentosMaestro = leerMaestroTabla_('segmentos', true);
+  const base = segmentosMaestro.length ? segmentosMaestro : SEED_SEGMENTOS;
+  const segmentos = base.map(s => {
+    const margen = parseFloat(s.margen) || 0;
+    const precioMt2 = margen < 1 ? costos.costoTotalMt2 / (1 - margen) : 0;
+    return { id: s.id, nombre: s.nombre, margen, precioMt2, totalObra: precioMt2 * costos.mt2 };
   });
 
-  const seg = segmentos[segmentoActivo] || segmentos[2];
+  let seg = (h4data && h4data.segmentoId) ? segmentos.find(s => s.id === h4data.segmentoId) : null;
+  if (!seg && h4data && typeof h4data.segmentoActivo === 'number') seg = segmentos[h4data.segmentoActivo]; // obras no migradas
+  if (!seg) seg = segmentos[Math.min(2, segmentos.length - 1)] || segmentos[0];
+
   const rentabilidadMt2 = seg.precioMt2 - costos.costoTotalMt2;
   const rentabilidadTotal = rentabilidadMt2 * costos.mt2;
 
   return Object.assign({}, costos, {
-    segmentos, segmentoActivo, precioFinalMt2: seg.precioMt2, totalObra: seg.totalObra,
+    segmentos, segmentoId: seg.id, precioFinalMt2: seg.precioMt2, totalObra: seg.totalObra,
     rentabilidadMt2, rentabilidadTotal, completo: !!(h4data && h4data._completo)
   });
 }
@@ -265,9 +429,28 @@ function doGet(e) {
       return jsonResponse_({ ok: true, nombre: user.nombre, rol: user.rol });
     }
 
+    // Calculadora pública: sin token, sólo tipos/escaladores/reductores.
+    // No expone materiales, periféricos ni segmentos (margen).
+    if (action === 'getMaestroPublico') {
+      const m = leerMaestroCompleto_(true);
+      return jsonResponse_({ ok: true, tipos: m.tipos, escaladores: m.escaladores, reductores: m.reductores });
+    }
+
     const user = getUsuario_(e.parameter.token);
     if (!user) return jsonResponse_({ ok: false, error: 'No autorizado' });
     const sheet = getSheet_();
+
+    if (action === 'getMaestro') {
+      if (!puedeVer_(user.rol, 'h3')) return jsonResponse_({ ok: false, error: 'Tu rol no tiene acceso' });
+      const m = leerMaestroCompleto_(true);
+      return jsonResponse_({ ok: true, tipos: m.tipos, materiales: m.materiales, perifericos: m.perifericos, escaladores: m.escaladores, reductores: m.reductores });
+    }
+
+    if (action === 'getMaestroAdmin') {
+      if (user.rol !== 'gerencia') return jsonResponse_({ ok: false, error: 'Sólo Gerencia puede administrar el Maestro de Precios' });
+      const m = leerMaestroCompleto_(false);
+      return jsonResponse_({ ok: true, maestro: m });
+    }
 
     if (action === 'list') {
       const data = sheet.getDataRange().getValues();
@@ -337,6 +520,23 @@ function doGet(e) {
       return jsonResponse_({ ok: true, logs });
     }
 
+    // Historial de cambios del Maestro de Precios. Sólo Gerencia. Si se
+    // manda `tabla`, filtra sólo los cambios de esa tabla (tipos, materiales,
+    // perifericos, escaladores, reductores, segmentos); si no, trae todos.
+    if (action === 'logsMaestro') {
+      if (user.rol !== 'gerencia') return jsonResponse_({ ok: false, error: 'Sólo Gerencia puede ver este historial' });
+      const tabla = e.parameter.tabla || '';
+      const logsSheet = getLogsSheet_();
+      const data = logsSheet.getDataRange().getValues();
+      let logs = data.slice(1).filter(r => r[1] === 'maestro');
+      if (tabla) logs = logs.filter(r => String(r[2]).indexOf('tabla: ' + tabla + ' ') !== -1);
+      logs = logs
+        .sort((a, b) => new Date(b[4]) - new Date(a[4]))
+        .slice(0, 8)
+        .map(r => ({ accion: r[2], usuario: r[3], fecha: r[4] }));
+      return jsonResponse_({ ok: true, logs });
+    }
+
     return jsonResponse_({ ok: false, error: 'Acción desconocida' });
   } catch (err) {
     return jsonResponse_({ ok: false, error: err.toString() });
@@ -352,6 +552,15 @@ function doPost(e) {
     const action = body.action;
     const user = getUsuario_(body.token);
     if (!user) return jsonResponse_({ ok: false, error: 'No autorizado' });
+
+    if (action === 'saveMaestro') {
+      if (user.rol !== 'gerencia') return jsonResponse_({ ok: false, error: 'Sólo Gerencia puede editar el Maestro de Precios' });
+      const tabla = body.tabla;
+      if (!MAESTRO_DEFS[tabla]) return jsonResponse_({ ok: false, error: 'Tabla inválida' });
+      const items = escribirMaestroTabla_(tabla, body.items || [], user.nombre);
+      return jsonResponse_({ ok: true, items });
+    }
+
     const sheet = getSheet_();
 
     if (action === 'create') {
@@ -475,7 +684,7 @@ function doPost(e) {
 // ============================================
 // MIGRACIONES — ejecutar UNA sola vez a mano desde el editor de Apps
 // Script (elegir la función en el desplegable de arriba → ▶ Ejecutar).
-// Ambas son seguras de correr más de una vez: si no hay nada para
+// Todas son seguras de correr más de una vez: si no hay nada para
 // migrar, no hacen nada.
 // ============================================
 
@@ -505,7 +714,7 @@ function migrarTiposColocacionV2_() {
     if (typeof h3data.tipoColocacionIdx !== 'number') continue;
     const nombre = NOMBRES_POSIBLES[h3data.tipoColocacionIdx];
     if (!nombre) continue;
-    const nuevoIdx = H3_TIPOS_COLOCACION.findIndex(t => t.tipo === nombre);
+    const nuevoIdx = SEED_TIPOS.findIndex(t => t.tipo === nombre);
     if (nuevoIdx === -1 || nuevoIdx === h3data.tipoColocacionIdx) continue;
     h3data.tipoColocacionIdx = nuevoIdx;
     sheet.getRange(i + 1, COL.h3).setValue(JSON.stringify(h3data));
@@ -537,4 +746,92 @@ function asignarCodigosFaltantes_() {
     sheet.getRange(f.rowIndex, COL.codigo).setValue('OB-' + String(maxNum).padStart(4, '0'));
   });
   Logger.log('Códigos asignados: ' + sinCodigo.length);
+}
+
+// MIGRACIÓN AL MAESTRO DE PRECIOS (v3).
+// 1) Crea y siembra las 6 pestañas Maestro_* si todavía no existen (usa las
+//    listas SEED_* de más arriba, en el mismo orden que tenían hasta ahora
+//    en h3.js / calculadora.js, así los IDs quedan alineados por posición).
+// 2) Recorre TODAS las obras (incluidas las eliminadas) y en cada h3_json /
+//    h4_json agrega los IDs correspondientes:
+//    - tipoColocacionIdx (número) → tipoColocacionId (ej: 'tip03')
+//    - cada material/periférico/escalador/reductor guardado → le agrega
+//      `id` según su posición en las listas SEED_* (mismo orden de siempre)
+//    - h4: segmentoActivo (número) → segmentoId (ej: 'seg03')
+// Es seguro correrla más de una vez: si un campo ya tiene id, no lo toca.
+function migrarAMaestroV3_() {
+  // Fuerza la creación/siembra de las 6 pestañas si todavía no existen.
+  Object.keys(MAESTRO_DEFS).forEach(tabla => getMaestroSheet_(tabla));
+
+  const sheet = getSheet_();
+  const data = sheet.getDataRange().getValues();
+  let obrasH3Migradas = 0;
+  let obrasH4Migradas = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    let rowChanged = false;
+
+    // ---- H3 ----
+    const h3cell = data[i][COL.h3 - 1];
+    if (h3cell) {
+      let h3data;
+      try { h3data = JSON.parse(h3cell); } catch (e) { h3data = null; }
+      if (h3data) {
+        let h3Changed = false;
+
+        if (!h3data.tipoColocacionId && typeof h3data.tipoColocacionIdx === 'number') {
+          const seedTipo = SEED_TIPOS[h3data.tipoColocacionIdx];
+          if (seedTipo) { h3data.tipoColocacionId = seedTipo.id; h3Changed = true; }
+        }
+
+        if (Array.isArray(h3data.materiales)) {
+          h3data.materiales.forEach((m, idx) => {
+            if (!m.id && SEED_MATERIALES[idx]) { m.id = SEED_MATERIALES[idx].id; h3Changed = true; }
+          });
+        }
+        if (Array.isArray(h3data.perifericos)) {
+          h3data.perifericos.forEach((p, idx) => {
+            if (!p.id && SEED_PERIFERICOS[idx]) { p.id = SEED_PERIFERICOS[idx].id; h3Changed = true; }
+          });
+        }
+        if (Array.isArray(h3data.escaladores)) {
+          h3data.escaladores.forEach((esc, idx) => {
+            if (!esc.id && SEED_ESCALADORES[idx]) { esc.id = SEED_ESCALADORES[idx].id; h3Changed = true; }
+          });
+        }
+        if (Array.isArray(h3data.reductores)) {
+          h3data.reductores.forEach((r, idx) => {
+            if (!r.id && SEED_REDUCTORES[idx]) { r.id = SEED_REDUCTORES[idx].id; h3Changed = true; }
+          });
+        }
+
+        if (h3Changed) {
+          sheet.getRange(i + 1, COL.h3).setValue(JSON.stringify(h3data));
+          rowChanged = true;
+          obrasH3Migradas++;
+        }
+      }
+    }
+
+    // ---- H4 ----
+    const h4cell = data[i][COL.h4 - 1];
+    if (h4cell) {
+      let h4data;
+      try { h4data = JSON.parse(h4cell); } catch (e) { h4data = null; }
+      if (h4data && !h4data.segmentoId && typeof h4data.segmentoActivo === 'number') {
+        const seedSeg = SEED_SEGMENTOS[h4data.segmentoActivo];
+        if (seedSeg) {
+          h4data.segmentoId = seedSeg.id;
+          sheet.getRange(i + 1, COL.h4).setValue(JSON.stringify(h4data));
+          rowChanged = true;
+          obrasH4Migradas++;
+        }
+      }
+    }
+
+    if (rowChanged) sheet.getRange(i + 1, COL.fechaActualizacion).setValue(new Date().toISOString());
+  }
+
+  Logger.log('Migración a Maestro V3 — H3 actualizados: ' + obrasH3Migradas + ' | H4 actualizados: ' + obrasH4Migradas);
 }

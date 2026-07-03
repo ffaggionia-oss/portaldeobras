@@ -98,6 +98,43 @@ const API = {
       body: JSON.stringify({ action: 'eliminarPermanente', obraId, token })
     });
     return res.json();
+  },
+
+  // ---- Maestro de Precios ----
+
+  // Tipos, materiales, periféricos, escaladores, reductores (sólo activos).
+  // Para roles con acceso a H3 (compras_admin, project_manager, gerencia).
+  async getMaestro(token) {
+    const res = await fetch(`${CONFIG.API_URL}?action=getMaestro&token=${encodeURIComponent(token)}`);
+    return res.json();
+  },
+
+  // Todas las tablas completas (activos + inactivos). Sólo Gerencia.
+  async getMaestroAdmin(token) {
+    const res = await fetch(`${CONFIG.API_URL}?action=getMaestroAdmin&token=${encodeURIComponent(token)}`);
+    return res.json();
+  },
+
+  // Sin login: sólo tipos/escaladores/reductores, para la calculadora pública.
+  async getMaestroPublico() {
+    const res = await fetch(`${CONFIG.API_URL}?action=getMaestroPublico`);
+    return res.json();
+  },
+
+  // Reemplaza por completo una tabla del Maestro. Sólo Gerencia.
+  // tabla: 'tipos' | 'materiales' | 'perifericos' | 'escaladores' | 'reductores' | 'segmentos'
+  async saveMaestro(tabla, items, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveMaestro', tabla, items, token })
+    });
+    return res.json();
+  },
+
+  // Historial de cambios de una tabla del Maestro (o de todas si se omite tabla). Sólo Gerencia.
+  async getLogsMaestro(tabla, token) {
+    const res = await fetch(`${CONFIG.API_URL}?action=logsMaestro&tabla=${encodeURIComponent(tabla || '')}&token=${encodeURIComponent(token)}`);
+    return res.json();
   }
 };
 
