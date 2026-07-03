@@ -131,6 +131,16 @@ const API = {
     return res.json();
   },
 
+  // Parámetros de mano de obra (costo del equipo por día y su composición).
+  // Sólo Gerencia. Se usan para el precio sugerido de los tipos de colocación.
+  async saveParametros(costoEquipoDia, equipoDescripcion, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveParametros', costoEquipoDia, equipoDescripcion, token })
+    });
+    return res.json();
+  },
+
   // Historial de cambios de una tabla del Maestro (o de todas si se omite tabla). Sólo Gerencia.
   async getLogsMaestro(tabla, token) {
     const res = await fetch(`${CONFIG.API_URL}?action=logsMaestro&tabla=${encodeURIComponent(tabla || '')}&token=${encodeURIComponent(token)}`);
