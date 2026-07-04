@@ -42,8 +42,10 @@ function mergeMateriales(obraMateriales) {
     const ex = porId[mm.id];
     return {
       id: mm.id, categoria: mm.categoria, insumo: mm.insumo, proveedor: mm.proveedor, calculo: mm.calculo, unidad: mm.unidad,
-      unMt2: ex ? ex.unMt2 : mm.unMt2,
-      costoUn: ex ? ex.costoUn : mm.costoUn,
+      // Precio y consumo vienen SIEMPRE del Maestro: en el hito nadie los edita,
+      // ni siquiera Gerencia. Se cambian desde ⚙ Precios y Materiales.
+      unMt2: mm.unMt2,
+      costoUn: mm.costoUn,
       incluye: ex ? !!ex.incluye : false
     };
   });
@@ -62,7 +64,7 @@ function mergePerifericos(obraPerifericos) {
     const ex = porId[mp.id];
     return {
       id: mp.id, insumo: mp.insumo, proveedor: mp.proveedor, unidad: mp.unidad,
-      costoUn: ex ? ex.costoUn : mp.costoUn,
+      costoUn: mp.costoUn, // siempre del Maestro
       cantidad: ex ? ex.cantidad : 0,
       incluye: ex ? ((parseFloat(ex.cantidad) || 0) > 0) : false
     };
@@ -164,9 +166,9 @@ function renderH3(obra) {
     <tr ${m._inactivo ? 'style="opacity:0.55;"' : ''}>
       <td>${escapeHtml(m.categoria || '')}</td>
       <td>${escapeHtml(m.insumo)}${m._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(m.proveedor || '')}</div></td>
-      <td class="num">${esGerencia ? `<input type="number" step="any" id="mat_unmt2_${m.id}" value="${m.unMt2}" style="width:70px;">` : `${m.unMt2}`}</td>
+      <td class="num">${m.unMt2}</td>
       <td>${escapeHtml(m.unidad || '')}</td>
-      <td class="num">${esGerencia ? `<input type="number" step="any" id="mat_costo_${m.id}" value="${m.costoUn}" style="width:80px;">` : `$${(parseFloat(m.costoUn) || 0).toFixed(2)}`}</td>
+      <td class="num">$${(parseFloat(m.costoUn) || 0).toFixed(2)}</td>
       <td class="num">$${((parseFloat(m.unMt2) || 0) * (parseFloat(m.costoUn) || 0)).toFixed(2)}</td>
       <td style="text-align:center;"><input type="checkbox" id="mat_inc_${m.id}" ${m.incluye ? 'checked' : ''} onchange="refreshH3()"></td>
     </tr>
@@ -176,7 +178,7 @@ function renderH3(obra) {
     <tr ${p._inactivo ? 'style="opacity:0.55;"' : ''}>
       <td>${escapeHtml(p.insumo)}${p._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(p.proveedor || '')}</div></td>
       <td>${escapeHtml(p.unidad || '')}</td>
-      <td class="num">${esGerencia ? `<input type="number" step="any" id="per_costo_${p.id}" value="${p.costoUn}" style="width:80px;">` : `$${(parseFloat(p.costoUn) || 0).toFixed(2)}`}</td>
+      <td class="num">$${(parseFloat(p.costoUn) || 0).toFixed(2)}</td>
       <td class="num"><input type="number" step="any" min="0" id="per_cant_${p.id}" value="${p.cantidad}" style="width:70px;" onchange="refreshH3()"></td>
     </tr>
   `).join('');
@@ -222,7 +224,7 @@ function renderH3(obra) {
         <tbody>${materialesRows}</tbody>
       </table>
       <div class="small-note" style="margin-top:10px;">Total materiales x Mt²: <strong>$${calc.costoMateriales.toFixed(2)}</strong></div>
-      ${esGerencia ? `<div class="small-note" style="margin-top:6px;">¿Falta un material o cambió un precio? Se edita desde <span class="btn-ghost" style="padding:0;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span>.</div>` : `<div class="small-note" style="margin-top:6px;">Los precios y parámetros los define Gerencia. Si algo está desactualizado, avisale a Gerencia.</div>`}
+      ${esGerencia ? `<div class="small-note" style="margin-top:6px;">Los precios y consumos no se editan acá: se cambian desde <span class="btn-ghost" style="padding:0;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span> y toda obra activa los toma automáticamente.</div>` : `<div class="small-note" style="margin-top:6px;">Los precios y parámetros los define Gerencia. Si algo está desactualizado, avisale a Gerencia.</div>`}
     </div>
 
     <div class="section">
@@ -243,8 +245,8 @@ function renderH3(obra) {
             ${!tipoSeleccionadoExiste && d.tipoColocacionId ? `<option value="${escapeAttr(d.tipoColocacionId)}" selected>(tipo dado de baja del Maestro — elegí uno nuevo)</option>` : ''}
           </select>
         </div>
-        <div class="field"><label>Costo capataz/día</label>${esGerencia ? `<input type="number" id="h3_costoCapataz" value="${d.costoCapataz}">` : `<div class="small-note" style="padding:10px 0;">$${d.costoCapataz}</div>`}</div>
-        <div class="field"><label>Costo ayudante/día</label>${esGerencia ? `<input type="number" id="h3_costoAyudante" value="${d.costoAyudante}">` : `<div class="small-note" style="padding:10px 0;">$${d.costoAyudante}</div>`}</div>
+        <div class="field"><label>Costo capataz/día</label><div class="small-note" style="padding:10px 0;">$${d.costoCapataz}</div></div>
+        <div class="field"><label>Costo ayudante/día</label><div class="small-note" style="padding:10px 0;">$${d.costoAyudante}</div></div>
         <div class="field"><label>Cant. ayudantes</label><input type="number" id="h3_cantAyudantes" value="${d.cantAyudantes}"></div>
       </div>
       <div class="small-note" style="margin-top:10px;">Costo base MO x Mt²: <strong>$${calc.moBase.toFixed(0)}</strong> → Ajustado: <strong>$${calc.moAjustada.toFixed(0)}</strong></div>
@@ -334,17 +336,20 @@ function collectH3() {
   const prevEscaladores = mergeEscaladores(prev.escaladores);
   const prevReductores = mergeReductores(prev.reductores);
 
+  // Precios y consumos NO se leen del DOM: ya no hay inputs para ellos.
+  // Vienen del Maestro vía mergeMateriales/mergePerifericos, así lo guardado
+  // siempre refleja el Maestro vigente.
   const materiales = prevMateriales.map(m => ({
     id: m.id, categoria: m.categoria, insumo: m.insumo, proveedor: m.proveedor, calculo: m.calculo, unidad: m.unidad,
-    unMt2: document.getElementById(`mat_unmt2_${m.id}`) ? (parseFloat(val(`mat_unmt2_${m.id}`)) || 0) : m.unMt2,
-    costoUn: document.getElementById(`mat_costo_${m.id}`) ? (parseFloat(val(`mat_costo_${m.id}`)) || 0) : m.costoUn,
+    unMt2: m.unMt2,
+    costoUn: m.costoUn,
     incluye: document.getElementById(`mat_inc_${m.id}`) ? document.getElementById(`mat_inc_${m.id}`).checked : m.incluye
   }));
   const perifericos = prevPerifericos.map(p => {
     const cantidad = document.getElementById(`per_cant_${p.id}`) ? (parseFloat(val(`per_cant_${p.id}`)) || 0) : (parseFloat(p.cantidad) || 0);
     return {
       id: p.id, insumo: p.insumo, proveedor: p.proveedor, unidad: p.unidad,
-      costoUn: document.getElementById(`per_costo_${p.id}`) ? (parseFloat(val(`per_costo_${p.id}`)) || 0) : p.costoUn,
+      costoUn: p.costoUn,
       cantidad,
       incluye: cantidad > 0 // ya no hay checkbox: se incluye si tiene cantidad
     };
@@ -363,8 +368,8 @@ function collectH3() {
     mt2: val('h3_mt2') || prev.mt2,
     materiales, perifericos, escaladores, reductores,
     tipoColocacionId: document.getElementById('h3_tipoColocacion') ? document.getElementById('h3_tipoColocacion').value : prev.tipoColocacionId,
-    costoCapataz: parseFloat(val('h3_costoCapataz')) || prev.costoCapataz,
-    costoAyudante: parseFloat(val('h3_costoAyudante')) || prev.costoAyudante,
+    costoCapataz: prev.costoCapataz, // sin input en el hito: sólo informativo
+    costoAyudante: prev.costoAyudante,
     cantAyudantes: parseFloat(val('h3_cantAyudantes')) || prev.cantAyudantes,
     fiscalIncluido: document.getElementById('h3_fiscalIncluido') ? document.getElementById('h3_fiscalIncluido').checked : prev.fiscalIncluido,
     fiscalMinimo: prev.fiscalMinimo, fiscalPct: prev.fiscalPct,
