@@ -64,11 +64,11 @@ function mergePerifericos(obraPerifericos) {
       id: mp.id, insumo: mp.insumo, proveedor: mp.proveedor, unidad: mp.unidad,
       costoUn: ex ? ex.costoUn : mp.costoUn,
       cantidad: ex ? ex.cantidad : 0,
-      incluye: ex ? !!ex.incluye : (mp.id === 'per01')
+      incluye: ex ? ((parseFloat(ex.cantidad) || 0) > 0) : false
     };
   });
   (obraPerifericos || []).forEach(p => {
-    if (p.id && !usados[p.id] && p.incluye) result.push(Object.assign({}, p, { _inactivo: true }));
+    if (p.id && !usados[p.id] && (parseFloat(p.cantidad) || 0) > 0) result.push(Object.assign({}, p, { _inactivo: true, incluye: true }));
   });
   return result;
 }
@@ -114,7 +114,7 @@ function h3CostoCalcular(d) {
   d.materiales.forEach(m => { if (m.incluye) costoMateriales += (parseFloat(m.unMt2) || 0) * (parseFloat(m.costoUn) || 0); });
 
   let costoPerifericos = 0;
-  d.perifericos.forEach(p => { if (p.incluye && mt2 > 0) costoPerifericos += ((parseFloat(p.costoUn) || 0) * (parseFloat(p.cantidad) || 0)) / mt2; });
+  d.perifericos.forEach(p => { if ((parseFloat(p.cantidad) || 0) > 0 && mt2 > 0) costoPerifericos += ((parseFloat(p.costoUn) || 0) * (parseFloat(p.cantidad) || 0)) / mt2; });
 
   const tipo = (MAESTRO.tipos || []).find(t => t.id === d.tipoColocacionId) || (MAESTRO.tipos || [])[0] || { costoMt2: 0 };
   const moBase = parseFloat(tipo.costoMt2) || 0;
@@ -155,13 +155,18 @@ function renderH3(obra) {
 
   const tipoSeleccionadoExiste = (MAESTRO.tipos || []).some(t => t.id === d.tipoColocacionId);
 
+  // Sólo Gerencia puede editar precios y parámetros de cálculo. El resto de
+  // los roles los ve como texto fijo (y como no existe el <input>, collectH3
+  // conserva automáticamente el valor guardado — no hay forma de pisarlo desde la UI).
+  const esGerencia = currentUser.rol === 'gerencia';
+
   const materialesRows = d.materiales.map(m => `
     <tr ${m._inactivo ? 'style="opacity:0.55;"' : ''}>
       <td>${escapeHtml(m.categoria || '')}</td>
       <td>${escapeHtml(m.insumo)}${m._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(m.proveedor || '')}</div></td>
-      <td class="num"><input type="number" step="any" id="mat_unmt2_${m.id}" value="${m.unMt2}" style="width:70px;"></td>
+      <td class="num">${esGerencia ? `<input type="number" step="any" id="mat_unmt2_${m.id}" value="${m.unMt2}" style="width:70px;">` : `${m.unMt2}`}</td>
       <td>${escapeHtml(m.unidad || '')}</td>
-      <td class="num"><input type="number" step="any" id="mat_costo_${m.id}" value="${m.costoUn}" style="width:80px;"></td>
+      <td class="num">${esGerencia ? `<input type="number" step="any" id="mat_costo_${m.id}" value="${m.costoUn}" style="width:80px;">` : `$${(parseFloat(m.costoUn) || 0).toFixed(2)}`}</td>
       <td class="num">$${((parseFloat(m.unMt2) || 0) * (parseFloat(m.costoUn) || 0)).toFixed(2)}</td>
       <td style="text-align:center;"><input type="checkbox" id="mat_inc_${m.id}" ${m.incluye ? 'checked' : ''} onchange="refreshH3()"></td>
     </tr>
@@ -171,9 +176,8 @@ function renderH3(obra) {
     <tr ${p._inactivo ? 'style="opacity:0.55;"' : ''}>
       <td>${escapeHtml(p.insumo)}${p._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(p.proveedor || '')}</div></td>
       <td>${escapeHtml(p.unidad || '')}</td>
-      <td class="num"><input type="number" step="any" id="per_costo_${p.id}" value="${p.costoUn}" style="width:80px;"></td>
-      <td class="num"><input type="number" step="any" id="per_cant_${p.id}" value="${p.cantidad}" style="width:70px;" onchange="refreshH3()"></td>
-      <td style="text-align:center;"><input type="checkbox" id="per_inc_${p.id}" ${p.incluye ? 'checked' : ''} onchange="refreshH3()"></td>
+      <td class="num">${esGerencia ? `<input type="number" step="any" id="per_costo_${p.id}" value="${p.costoUn}" style="width:80px;">` : `$${(parseFloat(p.costoUn) || 0).toFixed(2)}`}</td>
+      <td class="num"><input type="number" step="any" min="0" id="per_cant_${p.id}" value="${p.cantidad}" style="width:70px;" onchange="refreshH3()"></td>
     </tr>
   `).join('');
 
@@ -197,7 +201,7 @@ function renderH3(obra) {
     ...m, cantidad: Math.round((parseFloat(m.unMt2) || 0) * calc.mt2 * 100) / 100,
     total: (parseFloat(m.unMt2) || 0) * calc.mt2 * (parseFloat(m.costoUn) || 0)
   }));
-  const comprasServicios = d.perifericos.filter(p => p.incluye).map(p => ({
+  const comprasServicios = d.perifericos.filter(p => (parseFloat(p.cantidad) || 0) > 0).map(p => ({
     ...p, total: (parseFloat(p.costoUn) || 0) * (parseFloat(p.cantidad) || 0)
   }));
   const totalCompras = compras.reduce((s, m) => s + m.total, 0) + comprasServicios.reduce((s, p) => s + p.total, 0);
@@ -218,16 +222,16 @@ function renderH3(obra) {
         <tbody>${materialesRows}</tbody>
       </table>
       <div class="small-note" style="margin-top:10px;">Total materiales x Mt²: <strong>$${calc.costoMateriales.toFixed(2)}</strong></div>
-      ${currentUser.rol === 'gerencia' ? `<div class="small-note" style="margin-top:6px;">¿Falta un material o cambió un precio? Se edita desde <span class="btn-ghost" style="padding:0;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span>.</div>` : ''}
+      ${esGerencia ? `<div class="small-note" style="margin-top:6px;">¿Falta un material o cambió un precio? Se edita desde <span class="btn-ghost" style="padding:0;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span>.</div>` : `<div class="small-note" style="margin-top:6px;">Los precios y parámetros los define Gerencia. Si algo está desactualizado, avisale a Gerencia.</div>`}
     </div>
 
     <div class="section">
       <div class="section-title">Periféricos y servicios</div>
       <table class="calc-table">
-        <thead><tr><th>Insumo</th><th>Unidad</th><th>Costo x Un</th><th>Cantidad</th><th>Incl.</th></tr></thead>
+        <thead><tr><th>Insumo</th><th>Unidad</th><th>Costo x Un</th><th>Cantidad</th></tr></thead>
         <tbody>${perifericosRows}</tbody>
       </table>
-      <div class="small-note" style="margin-top:10px;">Total periféricos x Mt²: <strong>$${calc.costoPerifericos.toFixed(2)}</strong></div>
+      <div class="small-note" style="margin-top:10px;">Total periféricos x Mt²: <strong>$${calc.costoPerifericos.toFixed(2)}</strong> — se incluye todo lo que tenga cantidad mayor a 0.</div>
     </div>
 
     <div class="section">
@@ -239,8 +243,8 @@ function renderH3(obra) {
             ${!tipoSeleccionadoExiste && d.tipoColocacionId ? `<option value="${escapeAttr(d.tipoColocacionId)}" selected>(tipo dado de baja del Maestro — elegí uno nuevo)</option>` : ''}
           </select>
         </div>
-        <div class="field"><label>Costo capataz/día</label><input type="number" id="h3_costoCapataz" value="${d.costoCapataz}"></div>
-        <div class="field"><label>Costo ayudante/día</label><input type="number" id="h3_costoAyudante" value="${d.costoAyudante}"></div>
+        <div class="field"><label>Costo capataz/día</label>${esGerencia ? `<input type="number" id="h3_costoCapataz" value="${d.costoCapataz}">` : `<div class="small-note" style="padding:10px 0;">$${d.costoCapataz}</div>`}</div>
+        <div class="field"><label>Costo ayudante/día</label>${esGerencia ? `<input type="number" id="h3_costoAyudante" value="${d.costoAyudante}">` : `<div class="small-note" style="padding:10px 0;">$${d.costoAyudante}</div>`}</div>
         <div class="field"><label>Cant. ayudantes</label><input type="number" id="h3_cantAyudantes" value="${d.cantAyudantes}"></div>
       </div>
       <div class="small-note" style="margin-top:10px;">Costo base MO x Mt²: <strong>$${calc.moBase.toFixed(0)}</strong> → Ajustado: <strong>$${calc.moAjustada.toFixed(0)}</strong></div>
@@ -336,12 +340,15 @@ function collectH3() {
     costoUn: document.getElementById(`mat_costo_${m.id}`) ? (parseFloat(val(`mat_costo_${m.id}`)) || 0) : m.costoUn,
     incluye: document.getElementById(`mat_inc_${m.id}`) ? document.getElementById(`mat_inc_${m.id}`).checked : m.incluye
   }));
-  const perifericos = prevPerifericos.map(p => ({
-    id: p.id, insumo: p.insumo, proveedor: p.proveedor, unidad: p.unidad,
-    costoUn: document.getElementById(`per_costo_${p.id}`) ? (parseFloat(val(`per_costo_${p.id}`)) || 0) : p.costoUn,
-    cantidad: document.getElementById(`per_cant_${p.id}`) ? (parseFloat(val(`per_cant_${p.id}`)) || 0) : p.cantidad,
-    incluye: document.getElementById(`per_inc_${p.id}`) ? document.getElementById(`per_inc_${p.id}`).checked : p.incluye
-  }));
+  const perifericos = prevPerifericos.map(p => {
+    const cantidad = document.getElementById(`per_cant_${p.id}`) ? (parseFloat(val(`per_cant_${p.id}`)) || 0) : (parseFloat(p.cantidad) || 0);
+    return {
+      id: p.id, insumo: p.insumo, proveedor: p.proveedor, unidad: p.unidad,
+      costoUn: document.getElementById(`per_costo_${p.id}`) ? (parseFloat(val(`per_costo_${p.id}`)) || 0) : p.costoUn,
+      cantidad,
+      incluye: cantidad > 0 // ya no hay checkbox: se incluye si tiene cantidad
+    };
+  });
   const escaladores = prevEscaladores.map(e => ({
     id: e.id, condicion: e.condicion, pct: e.pct,
     aplica: document.getElementById(`esc_aplica_${e.id}`) ? document.getElementById(`esc_aplica_${e.id}`).checked : e.aplica
