@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kokkai · Cotizador</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#F5F0E8; color:#1a1a1a; font-size:14px; }
+  .hidden { display:none !important; }
+
+  header { background:#111; color:#fff; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  .brand { font-weight:900; letter-spacing:3px; font-size:18px; }
+  .brand span { color:#C9A227; }
+  .user-chip { font-size:12px; color:#ccc; }
+  .user-chip b { color:#C9A227; }
+  .logout { color:#888; cursor:pointer; font-size:12px; margin-left:10px; text-decoration:underline; }
+
+  .tabs { display:flex; gap:6px; padding:10px 18px 0; background:#111; }
+  .tab { padding:8px 16px; border-radius:8px 8px 0 0; background:#2a2a2a; color:#bbb; cursor:pointer; font-weight:600; font-size:13px; border:none; }
+  .tab.active { background:#F5F0E8; color:#111; }
+
+  main { padding:16px 18px 60px; max-width:1100px; margin:0 auto; }
+  .card { background:#fff; border:1px solid #e5ddcf; border-radius:10px; padding:14px; margin-bottom:14px; }
+  .card h3 { font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:#999; margin-bottom:10px; }
+
+  input, select, textarea { padding:8px 10px; border:1px solid #d8cfbd; border-radius:7px; font-size:14px; background:#fff; font-family:inherit; }
+  input:focus, select:focus, textarea:focus { outline:2px solid #C9A227; border-color:#C9A227; }
+  label { font-size:12px; color:#777; display:block; margin-bottom:3px; }
+  .btn { padding:9px 16px; border:none; border-radius:7px; cursor:pointer; font-weight:700; font-size:13px; }
+  .btn-gold { background:#C9A227; color:#111; }
+  .btn-dark { background:#111; color:#fff; }
+  .btn-ghost { background:transparent; color:#555; border:1px solid #ccc; }
+  .btn-danger { background:transparent; color:#b33; border:1px solid #e0b8b8; }
+  .btn:disabled { opacity:.4; cursor:default; }
+
+  /* ===== Instalación ===== */
+  .inst-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-bottom:12px; }
+  .inst-sec-t { font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:#C9A227; font-weight:800; margin:14px 0 6px; border-bottom:1px solid #eee3c8; padding-bottom:3px; }
+  .inst-row { display:flex; align-items:center; gap:8px; padding:4px 6px; border-bottom:1px solid #f4efe4; font-size:12.5px; flex-wrap:wrap; }
+  .inst-row:hover { background:#FBF7EE; }
+  .inst-row label { margin:0; font-size:12.5px; color:#333; display:flex; align-items:center; gap:6px; cursor:pointer; flex:1; min-width:180px; }
+  .inst-row input[type=checkbox] { width:auto; }
+  .inst-row .mini { width:70px; padding:4px 6px; font-size:12px; }
+  .inst-row .calc { margin-left:auto; font-size:12px; color:#777; white-space:nowrap; }
+  .inst-row .calc b { color:#111; }
+  details.inst-cat { border:1px solid #eee; border-radius:8px; margin-bottom:6px; background:#fff; }
+  details.inst-cat summary { cursor:pointer; padding:8px 10px; font-weight:700; font-size:13px; color:#444; }
+  details.inst-cat summary .cnt { color:#C9A227; font-weight:800; }
+  details.inst-cat .inst-cat-body { padding:0 8px 8px; }
+  .seg-btns { display:flex; gap:6px; flex-wrap:wrap; }
+  .seg-btn { flex:1; min-width:110px; border:1.5px solid #d8cfbd; background:#fff; border-radius:8px; padding:8px 6px; cursor:pointer; text-align:center; }
+  .seg-btn .sn { font-size:11px; font-weight:800; letter-spacing:.5px; color:#666; }
+  .seg-btn .sm { font-size:10px; color:#999; }
+  .seg-btn .sp { font-size:14px; font-weight:800; margin-top:2px; }
+  .seg-btn.active { border-color:#C9A227; background:#FBF3DC; }
+  .inst-resumen { margin-top:14px; }
+  .inst-resumen .tot-line { font-size:12.5px; }
+  .inst-warn { font-size:11.5px; color:#a06a00; background:#FDF6E3; border:1px solid #EFE1B8; border-radius:6px; padding:6px 8px; margin-top:8px; }
+
+  /* Buscador de productos */
+  .prod-search { width:100%; margin-bottom:8px; }
+  .prod-list { max-height:300px; overflow-y:auto; border:1px solid #eee; border-radius:8px; }
+  .prod-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid #f2ede2; cursor:pointer; }
+  .prod-row:hover { background:#FBF7EE; }
+  .prod-row .p-name { font-weight:600; font-size:13px; }
+  .prod-row .p-sub { font-size:11px; color:#888; }
+  .prod-row .p-price { font-weight:700; white-space:nowrap; font-size:13px; }
+  .prod-row .p-price small { color:#999; font-weight:400; }
+  .badge-super { font-size:9px; font-weight:800; padding:1px 5px; border-radius:3px; background:#00A8B5; color:#fff; margin-left:5px; }
+  .badge-fav { font-size:9px; font-weight:800; padding:1px 5px; border-radius:3px; background:#2D9E4F; color:#fff; margin-left:5px; }
+
+  /* Carrito */
+  table.cart { width:100%; border-collapse:collapse; }
+  table.cart th { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#999; text-align:left; padding:6px 8px; border-bottom:2px solid #eee; }
+  table.cart td { padding:8px; border-bottom:1px solid #f2ede2; font-size:13px; vertical-align:middle; }
+  table.cart td.num, table.cart th.num { text-align:right; white-space:nowrap; }
+  .qty-input { width:80px; text-align:right; }
+  .rm { color:#b33; cursor:pointer; font-weight:700; padding:0 6px; }
+  .clip-toggle { font-size:11px; color:#555; }
+
+  .totals-grid { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; }
+  .totals-box { flex:1; min-width:260px; }
+  .tot-line { display:flex; justify-content:space-between; padding:5px 0; font-size:14px; }
+  .tot-line.big { font-size:17px; font-weight:800; border-top:2px solid #111; padding-top:8px; margin-top:4px; }
+  .interno { background:#FBF7EE; border:1px dashed #C9A227; border-radius:8px; padding:10px 12px; }
+  .interno .tot-line { font-size:13px; color:#7a6a2f; }
+  .interno-title { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#C9A227; font-weight:800; margin-bottom:5px; }
+
+  /* Listado de cotizaciones */
+  .cot-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid #f2ede2; flex-wrap:wrap; }
+  .cot-row .c-id { font-weight:800; }
+  .cot-row .c-sub { font-size:11px; color:#888; }
+  .estado { font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; text-transform:uppercase; }
+  .e-Borrador { background:#eee; color:#666; }
+  .e-Enviada { background:#DCE9F7; color:#2b6cb0; }
+  .e-Aprobada { background:#DFF2E1; color:#2D9E4F; }
+  .e-Perdida { background:#F7DEDE; color:#b33; }
+  .e-Negociación { background:#EBE3F7; color:#6b46c1; }
+  .e-Stand-by { background:#E8ECEF; color:#5a6b7a; }
+  .e-Reemplazada { background:#eee; color:#999; }
+  .cot-row.reemplazada { opacity:.55; }
+  .ver-tag { font-size:10px; color:#2b6cb0; font-weight:700; }
+  .com-panel { background:#FBF7EE; border:1px solid #e5ddcf; border-radius:8px; padding:10px 12px; margin:0 0 10px; }
+  .com-item { padding:6px 0; border-bottom:1px dashed #e0d8c6; font-size:13px; }
+  .com-item:last-child { border-bottom:none; }
+  .com-meta { font-size:10px; color:#999; display:block; }
+  .flag-arq { font-size:10px; color:#C9A227; font-weight:700; }
+  .seg-badge { background:#b33; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; }
+  .seg-ok { color:#aaa; font-size:10px; }
+  .seg-banner { background:#FDECEC; border:1px solid #e0b8b8; color:#8a2b2b; padding:10px 12px; border-radius:8px; margin-bottom:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; }
+
+  .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .row-actions .btn { padding:5px 10px; font-size:12px; }
+  .status-msg { font-size:12px; color:#2D9E4F; margin-top:8px; min-height:16px; }
+  .status-msg.err { color:#b33; }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:640px){ .grid2 { grid-template-columns:1fr; } }
+
+  /* Login */
+  .login-wrap { max-width:340px; margin:80px auto; text-align:center; }
+  .login-wrap .brand { color:#111; font-size:26px; margin-bottom:6px; }
+  .login-wrap input { width:100%; margin:14px 0 10px; text-align:center; }
+
+  /* ============ PDF / impresión ============ */
+  #printArea { display:none; }
+  @media print {
+    body * { visibility:hidden; }
+    #printArea, #printArea * { visibility:visible; }
+    html, body { background:#fff !important; }
+    #printArea { display:block; position:absolute; left:0; top:0; width:100%; padding:18px 26px; background:#fff; }
+  }
+  .pr-doc { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#111; font-size:11.5px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .pr-top { display:flex; justify-content:space-between; align-items:center; padding:4px 0 16px; }
+  .pr-logo { height:62px; width:auto; }
+  .pr-xwrap { text-align:center; }
+  .pr-xbox { border:1px solid #bbb; color:#777; width:30px; height:30px; margin:0 auto; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; }
+  .pr-xleg { font-size:7px; color:#999; margin-top:3px; line-height:1.3; letter-spacing:.5px; text-transform:uppercase; }
+  .pr-doc-meta { text-align:right; }
+  .pr-tipo { font-size:19px; font-weight:300; letter-spacing:6px; color:#111; }
+  .pr-nro { font-size:13px; font-weight:700; letter-spacing:2px; color:#B9943E; margin-top:3px; }
+  .pr-fec { font-size:9.5px; letter-spacing:1.5px; color:#555; margin-top:5px; text-transform:uppercase; }
+  .pr-band { background:#000; color:#fff; display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 16px; font-size:9px; letter-spacing:1.3px; text-transform:uppercase; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .pr-band .kk { color:#B9943E; font-weight:700; letter-spacing:3px; font-size:11px; }
+  .pr-fiscal { text-align:center; font-size:8px; letter-spacing:1px; color:#8a8a8a; padding:7px 0 0; text-transform:uppercase; }
+  .pr-sec { margin-top:16px; }
+  .pr-sec-t { font-size:9px; letter-spacing:3px; text-transform:uppercase; color:#B9943E; font-weight:700; border-bottom:1.5px solid #B9943E; padding-bottom:5px; margin-bottom:4px; }
+  .pr-grid { display:grid; grid-template-columns:1fr 1fr; column-gap:26px; }
+  .pr-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; column-gap:26px; }
+  .pr-field { padding:6px 0 5px; border-bottom:1px solid #e9e9e9; min-height:32px; }
+  .pr-field.full { grid-column:1 / -1; }
+  .pr-lab { font-size:7.5px; text-transform:uppercase; letter-spacing:1.6px; color:#9b9b9b; }
+  .pr-val { font-size:12px; font-weight:600; margin-top:2px; min-height:14px; }
+  table.pr-items { width:100%; border-collapse:collapse; margin-top:4px; }
+  table.pr-items th { font-size:8.5px; letter-spacing:1.6px; text-transform:uppercase; text-align:left; padding:8px 8px 7px 0; border-bottom:2px solid #000; font-weight:700; color:#111; }
+  table.pr-items td { font-size:11.5px; padding:9px 8px 9px 0; border-bottom:1px solid #e9e9e9; vertical-align:top; }
+  table.pr-items .num { text-align:right; white-space:nowrap; }
+  .pr-item-sub { font-size:9px; color:#999; margin-top:2px; letter-spacing:.5px; text-transform:uppercase; }
+  .pr-bottom { display:flex; gap:26px; align-items:flex-start; margin-top:14px; }
+  .pr-notes-fisc { flex:1; font-size:9.5px; color:#777; line-height:1.7; padding-top:4px; }
+  .pr-totales { width:300px; }
+  .pr-totales .tl { display:flex; justify-content:space-between; padding:7px 14px; font-size:12px; border-bottom:1px solid #e9e9e9; }
+  .pr-totales .tl.big { background:#000; color:#B9943E; font-size:15px; font-weight:800; letter-spacing:1.5px; padding:11px 14px; border:none; margin-top:4px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .pr-totales .tl.pesos { font-weight:800; border-bottom:none; border-top:1px solid #000; font-size:13px; }
+  .pr-obs { margin-top:14px; font-size:11px; }
+  .pr-obs b { font-size:8.5px; letter-spacing:2px; text-transform:uppercase; color:#B9943E; display:block; margin-bottom:3px; }
+  .pr-cond { margin-top:18px; font-size:8.5px; color:#999; border-top:1px solid #ddd; padding-top:7px; line-height:1.6; }
+  </style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="viewLogin" class="login-wrap">
+  <div class="brand">KOK<span>KAI</span></div>
+  <div style="font-size:12px;color:#888;letter-spacing:2px;">COTIZADOR</div>
+  <input type="password" id="loginToken" placeholder="Token de acceso" onkeydown="if(event.key==='Enter')doLogin()">
+  <button class="btn btn-gold" style="width:100%" onclick="doLogin()">Ingresar</button>
+  <div class="status-msg err" id="loginMsg"></div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="viewApp" class="hidden">
+<header>
+  <div class="brand">KOK<span>KAI</span> <span style="font-size:11px;color:#888;letter-spacing:1px;font-weight:400"> COTIZADOR</span></div>
+  <div class="user-chip">Conectado: <b id="userName"></b><span class="logout" onclick="logout()">salir</span></div>
+</header>
+<div class="tabs">
+  <button class="tab active" id="tab-nueva" onclick="showTab('nueva')">➕ Cotización</button>
+  <button class="tab" id="tab-lista" onclick="showTab('lista')">📋 Guardadas</button>
+  <button class="tab" id="tab-clientes" onclick="showTab('clientes')">👤 Clientes</button>
+</div>
+<main>
+
+  <!-- ===== TAB NUEVA ===== -->
+  <div id="pane-nueva">
+    <div class="card" id="cotHeaderCard">
+      <h3 id="cotTitle">Nueva cotización</h3>
+      <div class="grid2">
+        <div>
+          <label>Cliente</label>
+          <div style="display:flex;gap:6px;">
+            <select id="selCliente" style="flex:1"></select>
+            <button class="btn btn-ghost" onclick="abrirNuevoCliente()">+ Nuevo</button>
+          </div>
+        </div>
+        <div>
+          <label>Vendedor · % comisión <span style="color:#C9A227;font-weight:700">(interno, no va al PDF)</span></label>
+          <div style="display:flex;gap:6px;">
+            <select id="inVend" style="flex:1" onchange="vendCambiado()">
+              <option>Franco Faggioni</option>
+              <option>Christian Holler</option>
+            </select>
+            <input type="number" id="inComVend" min="0" max="100" step="0.5" value="0" style="width:80px" oninput="renderCart()"> %
+          </div>
+        </div>
+        <div>
+          <label>Notas / observaciones (van al PDF)</label>
+          <input type="text" id="inNotas" style="width:100%" placeholder="Ej: entrega en obra, plazo 30 días…">
+        </div>
+        <div>
+          <label>Condición de pago</label>
+          <input type="text" list="dlCondPago" id="inCondPago" style="width:100%" value="80% adelantado + 20% previo a la entrega del material">
+          <datalist id="dlCondPago"></datalist>
+        </div>
+        <div>
+          <label>Validez (días)</label>
+          <input type="number" id="inValidez" min="1" step="1" value="7" style="width:100px">
+        </div>
+        <div>
+          <label>Lugar de entrega</label>
+          <input type="text" list="dlLugarEnt" id="inLugarEnt" style="width:100%" placeholder="Ej: obra en Costa Esmeralda">
+          <datalist id="dlLugarEnt"></datalist>
+        </div>
+        <div>
+          <label>Plazo de entrega</label>
+          <input type="text" list="dlPlazoEnt" id="inPlazoEnt" style="width:100%" placeholder="Ej: 15 días de confirmado el pago">
+          <datalist id="dlPlazoEnt"></datalist>
+        </div>
+        <div>
+          <label>Transporte</label>
+          <input type="text" list="dlTransEnt" id="inTransEnt" style="width:100%" placeholder="Ej: a cargo del comprador">
+          <datalist id="dlTransEnt"></datalist>
+        </div>
+        <div>
+          <label>IVA en el PDF</label>
+          <select id="inIva" style="width:100%">
+            <option value="21" selected>21%</option>
+            <option value="10.5">10,5%</option>
+            <option value="0">Sin IVA</option>
+          </select>
+        </div>
+        <div>
+          <label>Tipo de cambio ARS (opcional — agrega TOTAL PESOS al PDF)</label>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="number" id="inTC" min="0" step="0.01" style="width:130px" placeholder="Ej: 1510">
+            <button class="btn btn-ghost" onclick="traerTC()">↻ Oficial BNA</button>
+            <span class="status-msg" id="tcMsg" style="margin:0;"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Agregar productos</h3>
+      <input class="prod-search" type="text" id="prodSearch" placeholder="Buscar por madera, perfil, medidas… (ej: deck ash, C34, parky)" oninput="renderProdList()">
+      <div class="prod-list" id="prodList"></div>
+    </div>
+
+    <div class="card" id="cardInst">
+      <h3>🔧 Instalación / Colocación <span style="font-size:11px;color:#999;font-weight:400">· costos y consumos del Maestro de Precios — solo lectura</span></h3>
+      <div id="instOff">
+        <button class="btn btn-dark" onclick="instToggle(true)">＋ Cotizar con instalación</button>
+        <span style="font-size:12px;color:#999;margin-left:8px;">Si no la activás, se cotiza solo producto.</span>
+      </div>
+      <div id="instBody" class="hidden">
+        <div class="inst-grid">
+          <div>
+            <label>M² a instalar</label>
+            <div style="display:flex;gap:6px;">
+              <input type="number" id="instM2" min="0" step="any" style="width:110px" oninput="instSetM2(this.value)">
+              <button class="btn btn-ghost" style="font-size:11px;padding:6px 8px;" onclick="instM2DesdeCarrito()">← del carrito</button>
+            </div>
+          </div>
+          <div>
+            <label>Cómo se muestra al cliente</label>
+            <select id="instModo" style="width:100%" onchange="instSet('modo',this.value)">
+              <option value="sep">Ítem separado: "Servicio de instalación"</option>
+              <option value="int">Integrado al precio del producto</option>
+            </select>
+          </div>
+          <div id="instTargetWrap" class="hidden">
+            <label>Producto que absorbe la instalación</label>
+            <select id="instTarget" style="width:100%" onchange="instSet('targetK',parseInt(this.value))"></select>
+          </div>
+        </div>
+
+        <div class="inst-sec-t">Tipo de colocación — mano de obra (Maestro del portal)</div>
+        <div id="instTipos"></div>
+
+        <div class="inst-sec-t">Materiales de instalación <span style="font-size:11px;color:#999;font-weight:400">(tildá lo que incluye — cantidades calculadas por m²)</span></div>
+        <div id="instMats"></div>
+
+        <div class="inst-sec-t">Periféricos y servicios (cantidades por obra)</div>
+        <div id="instPerif"></div>
+
+        <div class="inst-sec-t">Dificultad de obra</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div id="instEsc"></div>
+          <div id="instRed"></div>
+        </div>
+        <div style="margin-top:8px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#333;">
+            <input type="checkbox" id="instFiscal" style="width:auto" onchange="instSet('fiscal',this.checked)">
+            Fiscal técnico de obra (15% de la mano de obra, mín. USD 300)
+          </label>
+        </div>
+
+        <div class="inst-sec-t">Margen Kokkai sobre la instalación</div>
+        <div class="seg-btns" id="instSegs"></div>
+        <div style="margin-top:8px;font-size:12.5px;display:flex;align-items:center;gap:8px;">
+          <span>Margen manual:</span>
+          <input type="number" class="mini" id="instMargen" min="0" max="90" step="1" style="width:80px" oninput="instSetMargen(this.value)"> % sobre precio
+        </div>
+
+        <div class="interno inst-resumen" id="instResumen"></div>
+        <div id="instWarn"></div>
+
+        <div style="margin-top:12px;">
+          <button class="btn btn-danger" onclick="instToggle(false)">✕ Quitar instalación</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Detalle de la cotización</h3>
+      <table class="cart">
+        <thead><tr><th>Producto</th><th>Medidas</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Subtotal</th><th></th></tr></thead>
+        <tbody id="cartBody"><tr><td colspan="6" style="color:#aaa;padding:16px;">Todavía no agregaste productos.</td></tr></tbody>
+      </table>
+
+      <div class="totals-grid" style="margin-top:16px;">
+        <div class="totals-box">
+          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;">
+            <div>
+              <label>Descuento de cierre (máx. 5%)</label>
+              <input type="number" id="inDesc" min="0" max="5" step="0.5" value="0" style="width:100px" oninput="capDesc();renderCart()"> %
+            </div>
+            <div style="align-self:flex-end;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="inArq" onchange="renderCart()" style="width:auto"> Comisión arquitecto 5% <span style="color:#C9A227;font-weight:700">(interno)</span>
+              </label>
+            </div>
+          </div>
+          <div class="interno" id="boxInterno">
+            <div class="interno-title">Solo interno — no va al cliente</div>
+            <div class="tot-line"><span>Comisión arquitecto (5%)</span><span id="iComArq">—</span></div>
+            <div class="tot-line"><span>Comisión vendedor (<span id="iComVendPct">0</span>%)</span><span id="iComVend">—</span></div>
+            <div class="tot-line"><span>Neto Kokkai</span><span id="iNeto">—</span></div>
+          </div>
+        </div>
+        <div class="totals-box">
+          <div class="tot-line"><span>Subtotal</span><span id="tSub">USD 0.00</span></div>
+          <div class="tot-line" id="lineDesc"><span>Descuento (<span id="tDescPct">0</span>%)</span><span id="tDesc">— USD 0.00</span></div>
+          <div class="tot-line big"><span>TOTAL</span><span id="tTotal">USD 0.00</span></div>
+          <div style="font-size:11px;color:#999;">Precios en USD. No incluyen IVA.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+        <button class="btn btn-gold" onclick="guardarCot()">💾 Guardar</button>
+        <button class="btn btn-dark" onclick="imprimirPdf()">🖨 PDF</button>
+        <button class="btn btn-ghost" onclick="nuevaCot()">Limpiar / nueva</button>
+      </div>
+      <div class="status-msg" id="cotMsg"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB LISTA ===== -->
+  <div id="pane-lista" class="hidden">
+    <div class="card">
+      <h3>Cotizaciones guardadas</h3>
+      <div id="segBanner"></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="cotSearch" placeholder="Buscar por cliente o número…" oninput="renderCotList()" style="flex:1;min-width:180px;">
+        <select id="cotEstadoFilter" onchange="renderCotList()">
+          <option value="">Todos los estados</option>
+          <option>Borrador</option><option>Enviada</option><option>Negociación</option><option>Stand-by</option><option>Aprobada</option><option>Perdida</option><option>Reemplazada</option>
+        </select>
+        <select id="cotVendFilter" onchange="renderCotList()">
+          <option value="">Todos los vendedores</option>
+          <option>Franco Faggioni</option><option>Christian Holler</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="cotSoloSeg" onchange="renderCotList()" style="width:auto"> ⏰ +10 días
+        </label>
+        <button class="btn btn-ghost" onclick="cargarCots()">↻ Actualizar</button>
+      </div>
+      <div id="cotList"><div style="color:#aaa;padding:14px;">Cargando…</div></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB CLIENTES ===== -->
+  <div id="pane-clientes" class="hidden">
+    <div class="card">
+      <h3 id="cliFormTitle">Nuevo cliente</h3>
+      <div class="grid2">
+        <div>
+          <label>CUIT (busca automático en ARCA)</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="cCuit" placeholder="30-12345678-9" style="flex:1">
+            <button class="btn btn-ghost" onclick="buscarCuit()">🔍 ARCA</button>
+          </div>
+        </div>
+        <div><label>Razón social / Nombre</label><input type="text" id="cRazon" style="width:100%"></div>
+        <div><label>Contacto</label><input type="text" id="cContacto" style="width:100%"></div>
+        <div><label>Email</label><input type="text" id="cEmail" style="width:100%"></div>
+        <div><label>Teléfono</label><input type="text" id="cTel" style="width:100%"></div>
+        <div><label>Dirección</label><input type="text" id="cDir" style="width:100%"></div>
+        <div><label>Localidad</label><input type="text" id="cLoc" style="width:100%"></div>
+        <div><label>Provincia</label><input type="text" id="cProv" style="width:100%"></div>
+        <div><label>Condición IVA</label>
+          <select id="cCondIva" style="width:100%">
+            <option value="">—</option>
+            <option>Consumidor Final</option>
+            <option>Responsable Inscripto</option>
+            <option>Monotributista</option>
+            <option>Exento</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-gold" onclick="guardarCliente()">💾 Guardar cliente</button>
+        <button class="btn btn-ghost" onclick="limpiarCliForm()">Limpiar</button>
+      </div>
+      <div class="status-msg" id="cliMsg"></div>
+    </div>
+    <div class="card">
+      <h3>Clientes</h3>
+      <div id="cliList"><div style="color:#aaa;padding:14px;">Cargando…</div></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- ===== ÁREA DE IMPRESIÓN (PDF al cliente — SIN datos internos) ===== -->
+<div id="printArea"></div>
+
+<script>
+// ============================================
+// CONFIG — pegar acá la URL /exec del Apps Script
+// ============================================
+const CONFIG = { API_URL: 'https://script.google.com/macros/s/AKfycbymOId6j3brNzKsSbfR7MYJ_UIa3yOvwX6q_N60UprTUf8cZqfYy2XVnoRiZlrV0vB4PQ/exec' };  // backend unificado (Kokkai - Obras DB)
+const MAX_DESC = 5;
+
+let D = [];  // se carga en vivo desde el Sheet de precios (getProductos)
+
+// ---------- API (mismo patrón que la app de obras) ----------
+
+// ============================================
+// MÓDULO INSTALACIÓN — datos EN VIVO del Maestro de Precios del portal
+// (⚙ Precios y Materiales, rol gerencia). Acá nada se edita: tipos,
+// consumos y costos son solo lectura; solo se elige qué incluye la obra.
+// Fórmula = la del portal (h3.js): MO ajustada ADITIVA, fiscal 15% mín 300.
+// ============================================
+let MAESTRO = null; // {tipos, materiales, perifericos, escaladores, reductores, segmentos?}
+
+function instDefault() {
+  return { on:false, m2:0, modo:'sep', targetK:0, tipoId:'', mats:{}, perif:{}, esc:{}, red:{},
+    fiscal:true, margen:0.40, segId:'' };
+}
+function instEnsure() { if (!cot.inst) cot.inst = instDefault(); return cot.inst; }
+
+// --- reglas automáticas por m² leídas del texto de la condición del Maestro ---
+// escaladores "Obra < 20 mt²" / "Obra < 40 mt²" → tramos; reductores "Obra 200–300 mt²" → rangos
+function instAutoEsc_() {
+  const ths = [];
+  (MAESTRO.escaladores||[]).forEach(e => {
+    const m = String(e.condicion).match(/<\s*(\d+)/);
+    if (m) ths.push({ id:e.id, lim:parseInt(m[1],10) });
+  });
+  ths.sort((a,b)=>a.lim-b.lim);
+  return ths;
+}
+function instAutoRed_(cond) {
+  const m = String(cond).match(/(\d+)\s*[–—-]\s*(\d+)/);
+  return m ? { min:parseInt(m[1],10), max:parseInt(m[2],10) } : null;
+}
+function instAutoFlags() {
+  const I = instEnsure(); const m2 = parseFloat(I.m2)||0;
+  const ths = instAutoEsc_();
+  let prev = 0;
+  ths.forEach(t => {
+    I.esc[t.id] = (m2 > 0 && m2 >= prev && m2 < t.lim);
+    prev = t.lim;
+  });
+  (MAESTRO.reductores||[]).forEach(r => {
+    const rg = instAutoRed_(r.condicion);
+    if (rg) I.red[r.id] = (m2 >= rg.min && m2 < rg.max);
+  });
+  document.querySelectorAll('#instEsc input[data-id]').forEach(ch => { ch.checked = !!I.esc[ch.dataset.id]; });
+  document.querySelectorAll('#instRed input[data-id]').forEach(ch => { ch.checked = !!I.red[ch.dataset.id]; });
+}
+
+function instCalc() {
+  const I = instEnsure();
+  const m2 = parseFloat(I.m2)||0;
+  if (!MAESTRO) return { m2, matsM2:0, perifTotal:0, perifM2:0, moM2:0, amp:0, red:0, moTotal:0, fiscalTotal:0, fiscalM2:0, costoM2:0, costoTotal:0, mg:0, precioM2:0, precioTotal:0, rent:0 };
+
+  const matsM2 = (MAESTRO.materiales||[]).reduce((s,m)=> I.mats[m.id] ? s + (parseFloat(m.unMt2)||0)*(parseFloat(m.costoUn)||0) : s, 0);
+  const perifTotal = (MAESTRO.perifericos||[]).reduce((s,p)=>{
+    const cant = parseFloat(I.perif[p.id])||0;
+    return s + cant*(parseFloat(p.costoUn)||0);
+  }, 0);
+  const perifM2 = m2>0 ? perifTotal/m2 : 0;
+
+  const tipo = (MAESTRO.tipos||[]).find(t=>t.id===I.tipoId);
+  const moBase = tipo ? (parseFloat(tipo.costoMt2)||0) : 0;
+  let amp = (MAESTRO.escaladores||[]).reduce((s,e)=> I.esc[e.id] ? s + (parseFloat(e.pct)||0) : s, 0);
+  amp = Math.min(amp, 0.40);
+  const red = (MAESTRO.reductores||[]).reduce((s,r)=> I.red[r.id] ? s + (parseFloat(r.pct)||0) : s, 0);
+  const moM2 = moBase * (1 + amp + red);   // fórmula ADITIVA del portal
+  const moTotal = moM2 * m2;
+
+  const fiscalTotal = (I.fiscal && moTotal>0) ? Math.max(moTotal*0.15, 300) : 0;
+  const fiscalM2 = m2>0 ? fiscalTotal/m2 : 0;
+
+  const costoM2 = matsM2 + perifM2 + moM2 + fiscalM2;
+  const costoTotal = costoM2*m2;
+  const mg = Math.min(Math.max(parseFloat(I.margen)||0, 0), 0.9);
+  const precioM2 = mg<1 ? costoM2/(1-mg) : costoM2;
+  const precioTotal = precioM2*m2;
+  return { m2, matsM2, perifTotal, perifM2, moBase, amp, red, moM2, moTotal,
+           fiscalTotal, fiscalM2, costoM2, costoTotal, mg, precioM2, precioTotal,
+           rent: precioTotal - costoTotal };
+}
+
+// Ítems "materializados": productos + instalación (separada o integrada)
+function itemsView() {
+  const base = cot.items.map((it,k)=>Object.assign({_k:k}, it));
+  const I = cot.inst;
+  if (!I || !I.on || !MAESTRO) return base;
+  const c = instCalc();
+  if (c.m2<=0 || c.precioTotal<=0) return base;
+  if (I.modo==='int') {
+    const t = base[I.targetK];
+    if (t && t.cant>0) {
+      t.precio = t.precio + c.precioTotal/t.cant;
+      t.desc = t.desc + ' — instalación incluida';
+      t._instMerged = true;
+      return base;
+    }
+  }
+  base.push({ _pseudo:true, idx:-1, desc:'Servicio de instalación y colocación', cat:'Instalación',
+    medidas:'—', u:'m²', precio:c.precioM2, cant:c.m2, conClip:false });
+  return base;
+}
+
+// Snapshot con NOMBRES para el PDF (sin costos internos)
+function instSnapshot() {
+  const I = cot.inst;
+  if (!I || !I.on || !MAESTRO) return null;
+  const c = instCalc();
+  const tipo = (MAESTRO.tipos||[]).find(t=>t.id===I.tipoId);
+  const mats = (MAESTRO.materiales||[]).filter(m=>I.mats[m.id]).map(m=>m.insumo);
+  const perif = (MAESTRO.perifericos||[]).map(p=>{
+    const cant = parseFloat(I.perif[p.id])||0;
+    return cant>0 ? p.insumo + ' (' + cant + (p.unidad ? ' ' + String(p.unidad).toLowerCase() : '') + ')' : null;
+  }).filter(Boolean);
+  return { on:true, m2:c.m2, modo:I.modo, tipos: tipo?[tipo.tipo]:[], mats, perif, fiscal:!!I.fiscal,
+    equipo:'colocadores', precioM2:c.precioM2, precioTotal:c.precioTotal };
+}
+
+// Config por IDs del Maestro — es lo que se guarda y lo que precarga la obra al aprobar
+function instCfg() {
+  const I = cot.inst;
+  if (!I || !I.on || !MAESTRO) return null;
+  return {
+    mt2: parseFloat(I.m2)||0, modo: I.modo,
+    tipoColocacionId: I.tipoId || '',
+    materiales: (MAESTRO.materiales||[]).filter(m=>I.mats[m.id]).map(m=>({ id:m.id, incluye:true })),
+    perifericos: (MAESTRO.perifericos||[]).filter(p=>(parseFloat(I.perif[p.id])||0)>0).map(p=>({ id:p.id, cantidad: parseFloat(I.perif[p.id])||0 })),
+    escaladores: (MAESTRO.escaladores||[]).filter(e=>I.esc[e.id]).map(e=>({ id:e.id, aplica:true })),
+    reductores: (MAESTRO.reductores||[]).filter(r=>I.red[r.id]).map(r=>({ id:r.id, aplica:true })),
+    fiscalIncluido: !!I.fiscal, margen: I.margen, segmentoId: I.segId || ''
+  };
+}
+// Reconstruye el estado desde una config guardada (por IDs)
+function instDesdeCfg(cfg) {
+  const I = instDefault();
+  if (!cfg) return I;
+  I.on = true;
+  I.m2 = cfg.mt2 || 0;
+  I.modo = cfg.modo || 'sep';
+  I.tipoId = cfg.tipoColocacionId || '';
+  (cfg.materiales||[]).forEach(m=>{ if(m.incluye) I.mats[m.id]=true; });
+  (cfg.perifericos||[]).forEach(p=>{ I.perif[p.id]=p.cantidad; });
+  (cfg.escaladores||[]).forEach(e=>{ if(e.aplica) I.esc[e.id]=true; });
+  (cfg.reductores||[]).forEach(r=>{ if(r.aplica) I.red[r.id]=true; });
+  I.fiscal = cfg.fiscalIncluido !== false;
+  I.margen = (cfg.margen!==undefined && cfg.margen!==null) ? cfg.margen : 0.40;
+  I.segId = cfg.segmentoId || '';
+  return I;
+}
+
+// ---------- UI ----------
+function instToggle(on) {
+  if (on && !MAESTRO) { alert('El Maestro de Precios no está disponible para tu usuario.'); return; }
+  instEnsure().on = on;
+  document.getElementById('instOff').classList.toggle('hidden', on);
+  document.getElementById('instBody').classList.toggle('hidden', !on);
+  if (on && !parseFloat(cot.inst.m2)) instM2DesdeCarrito(true);
+  buildInstUI();
+  renderCart();
+}
+function instSet(k,v) { instEnsure()[k]=v; if (k==='modo') instTargetVis(); instRecalc(); }
+function instSetTipo(id) { instEnsure().tipoId = id; instRecalc(); }
+function instSetMargen(v) {
+  const I=instEnsure(); I.margen=Math.min(Math.max((parseFloat(v)||0)/100,0),0.9); I.segId='';
+  document.querySelectorAll('#instSegs .seg-btn').forEach(b=>b.classList.remove('active'));
+  instRecalc();
+}
+function instSetSeg(id) {
+  const s=(MAESTRO.segmentos||[]).find(x=>x.id===id); if (!s) return;
+  const I=instEnsure(); I.margen=parseFloat(s.margen)||0; I.segId=s.id;
+  document.getElementById('instMargen').value=Math.round(I.margen*100);
+  document.querySelectorAll('#instSegs .seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.id===id));
+  instRecalc();
+}
+function instSetM2(v) {
+  instEnsure().m2 = parseFloat(v)||0;
+  instAutoFlags();
+  instRecalc();
+}
+function instM2DesdeCarrito(silencioso) {
+  const m2 = cot.items.filter(it=>it.u==='m²').reduce((s,it)=>s+(parseFloat(it.cant)||0),0);
+  if (!m2 && !silencioso) { alert('No hay productos en m² en el carrito.'); return; }
+  document.getElementById('instM2').value = m2||'';
+  instSetM2(m2);
+}
+function instTargetVis() {
+  const I=instEnsure();
+  const w=document.getElementById('instTargetWrap');
+  w.classList.toggle('hidden', I.modo!=='int');
+  if (I.modo==='int') {
+    const sel=document.getElementById('instTarget');
+    sel.innerHTML = cot.items.map((it,k)=>`<option value="${k}" ${k===I.targetK?'selected':''}>${it.desc} (${it.cant} ${it.u})</option>`).join('')
+      || '<option value="0">— agregá productos al carrito —</option>';
+  }
+}
+
+function buildInstUI() {
+  const I = instEnsure();
+  const card = document.getElementById('cardInst');
+  if (!MAESTRO) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  document.getElementById('instOff').classList.toggle('hidden', I.on);
+  document.getElementById('instBody').classList.toggle('hidden', !I.on);
+  if (!I.on) return;
+  if (!I.tipoId && (MAESTRO.tipos||[]).length) I.tipoId = (MAESTRO.tipos[1]||MAESTRO.tipos[0]).id;
+  document.getElementById('instM2').value = I.m2||'';
+  document.getElementById('instModo').value = I.modo||'sep';
+  document.getElementById('instFiscal').checked = !!I.fiscal;
+  document.getElementById('instMargen').value = Math.round((I.margen||0)*100);
+  instTargetVis();
+
+  // Tipo de colocación — UNO solo (radio), costo del Maestro, solo lectura
+  document.getElementById('instTipos').innerHTML = (MAESTRO.tipos||[]).map(t=>`
+    <div class="inst-row">
+      <label><input type="radio" name="instTipoR" value="${t.id}" ${I.tipoId===t.id?'checked':''}
+        onchange="instSetTipo('${t.id}')"> ${t.tipo}</label>
+      <span class="calc">USD ${fmt(parseFloat(t.costoMt2)||0)}/m²${t.rendimiento?' · '+t.rendimiento+' m²/día':''}</span>
+    </div>`).join('');
+
+  // Materiales por categoría — consumo y costo del Maestro (solo lectura),
+  // con la CANTIDAD TOTAL calculada para los m² de la obra
+  const cats=[...new Set((MAESTRO.materiales||[]).map(m=>m.categoria||'Otros'))];
+  document.getElementById('instMats').innerHTML = cats.map(cat=>{
+    const rows = (MAESTRO.materiales||[]).filter(m=>(m.categoria||'Otros')===cat).map(m=>`
+      <div class="inst-row">
+        <label><input type="checkbox" ${I.mats[m.id]?'checked':''}
+          onchange="instEnsure().mats['${m.id}']=this.checked;instRecalc()">
+          ${m.insumo}${m.proveedor?' <span style="color:#aaa">('+m.proveedor+')</span>':''}</label>
+        <span class="calc" style="color:#777">${m.unMt2} ${m.unidad||'un'}/m² · USD ${fmt(parseFloat(m.costoUn)||0)} c/u</span>
+        <span class="calc"><b id="instMatQ-${m.id}">—</b></span>
+        <span class="calc"><b id="instMatC-${m.id}">—</b>/m²</span>
+      </div>`).join('');
+    return `<details class="inst-cat"><summary>${cat} <span class="cnt" id="instCatCnt-${cat.replace(/\s/g,'_')}"></span></summary><div class="inst-cat-body">${rows}</div></details>`;
+  }).join('');
+
+  // Periféricos — cantidad por obra (único campo editable), costo del Maestro
+  document.getElementById('instPerif').innerHTML = (MAESTRO.perifericos||[]).map(p=>`
+    <div class="inst-row">
+      <label style="cursor:default">${p.insumo}${p.proveedor?' <span style="color:#aaa">('+p.proveedor+')</span>':''}</label>
+      <input type="number" class="mini" min="0" step="any" value="${I.perif[p.id]||''}" placeholder="0" title="cantidad"
+        oninput="instEnsure().perif['${p.id}']=this.value;instRecalc()"> <small style="color:#999">${p.unidad||'un'}</small>
+      <span class="calc" style="color:#777">USD ${fmt(parseFloat(p.costoUn)||0)} c/u</span>
+      <span class="calc"><b id="instPerC-${p.id}">—</b></span>
+    </div>`).join('');
+
+  // Dificultad — escaladores y reductores del Maestro (los de tamaño, automáticos)
+  document.getElementById('instEsc').innerHTML =
+    '<div style="font-size:11px;font-weight:800;color:#999;margin-bottom:4px;">AMPLÍAN LA MANO DE OBRA (cap 40%)</div>' +
+    (MAESTRO.escaladores||[]).map(e=>{
+      const auto = /<\s*\d+/.test(String(e.condicion));
+      return `<div class="inst-row"><label><input type="checkbox" data-id="${e.id}" ${I.esc[e.id]?'checked':''}
+        onchange="instEnsure().esc['${e.id}']=this.checked;instRecalc()"> ${e.condicion}${auto?' <span style="color:#bbb;font-size:10px">(auto)</span>':''}</label>
+        <span class="calc">+${Math.round((parseFloat(e.pct)||0)*100)}%</span></div>`;
+    }).join('');
+  document.getElementById('instRed').innerHTML =
+    '<div style="font-size:11px;font-weight:800;color:#999;margin-bottom:4px;">REDUCEN POR VOLUMEN</div>' +
+    (MAESTRO.reductores||[]).map(r=>{
+      const auto = !!instAutoRed_(r.condicion);
+      return `<div class="inst-row"><label><input type="checkbox" data-id="${r.id}" ${I.red[r.id]?'checked':''}
+        onchange="instEnsure().red['${r.id}']=this.checked;instRecalc()"> ${r.condicion}${auto?' <span style="color:#bbb;font-size:10px">(auto)</span>':''}</label>
+        <span class="calc">${Math.round((parseFloat(r.pct)||0)*100)}%</span></div>`;
+    }).join('');
+
+  // Segmentos de margen (vienen del Maestro; si no llegan, queda el margen manual)
+  document.getElementById('instSegs').innerHTML = (MAESTRO.segmentos||[]).map(s=>`
+    <div class="seg-btn ${I.segId===s.id?'active':''}" data-id="${s.id}" onclick="instSetSeg('${s.id}')">
+      <div class="sn">${s.nombre}</div><div class="sm">margen ${Math.round((parseFloat(s.margen)||0)*100)}%</div>
+      <div class="sp" id="instSegP-${s.id}">—</div>
+    </div>`).join('');
+
+  instRecalc(true);
+}
+
+function instRecalc(skipCart) {
+  const I = instEnsure();
+  if (!I.on || !MAESTRO) { if (!skipCart) renderCart(); return; }
+  const c = instCalc();
+  const m2 = c.m2;
+  (MAESTRO.materiales||[]).forEach(m=>{
+    const elC=document.getElementById('instMatC-'+m.id);
+    if (elC) elC.textContent = 'USD ' + fmt((parseFloat(m.unMt2)||0)*(parseFloat(m.costoUn)||0));
+    const elQ=document.getElementById('instMatQ-'+m.id);
+    if (elQ) elQ.textContent = (I.mats[m.id] && m2>0) ? ('≈ ' + fmt((parseFloat(m.unMt2)||0)*m2, 1) + ' ' + (m.unidad||'un')) : '—';
+  });
+  const cats={};
+  (MAESTRO.materiales||[]).forEach(m=>{ if (I.mats[m.id]) { const cat=m.categoria||'Otros'; cats[cat]=(cats[cat]||0)+1; } });
+  [...new Set((MAESTRO.materiales||[]).map(m=>m.categoria||'Otros'))].forEach(cat=>{
+    const el=document.getElementById('instCatCnt-'+cat.replace(/\s/g,'_'));
+    if (el) el.textContent = cats[cat] ? '· '+cats[cat]+' ✓' : '';
+  });
+  (MAESTRO.perifericos||[]).forEach(p=>{
+    const cant=parseFloat(I.perif[p.id])||0;
+    const el=document.getElementById('instPerC-'+p.id);
+    if (el) el.textContent = cant>0 ? 'USD '+fmt(cant*(parseFloat(p.costoUn)||0)) : '—';
+  });
+  (MAESTRO.segmentos||[]).forEach(s=>{
+    const el=document.getElementById('instSegP-'+s.id);
+    const mgS = parseFloat(s.margen)||0;
+    if (el) el.textContent = 'USD ' + fmt(mgS<1 ? c.costoM2/(1-mgS) : c.costoM2) + '/m²';
+  });
+  // resumen interno
+  const descPct = Math.min(Math.max(parseFloat(document.getElementById('inDesc').value)||0,0),MAX_DESC);
+  const rentReal = c.precioTotal*(1-descPct/100) - c.costoTotal;
+  const segNombre = I.segId ? (((MAESTRO.segmentos||[]).find(s=>s.id===I.segId)||{}).nombre||'') : 'manual';
+  document.getElementById('instResumen').innerHTML = `
+    <div class="interno-title">Instalación — solo interno, no va al cliente</div>
+    <div class="tot-line"><span>Materiales x m²</span><span>USD ${fmt(c.matsM2)}</span></div>
+    <div class="tot-line"><span>Periféricos x m² (total USD ${fmt(c.perifTotal)})</span><span>USD ${fmt(c.perifM2)}</span></div>
+    <div class="tot-line"><span>Mano de obra x m² (dif. +${Math.round(c.amp*100)}% / vol. ${Math.round(c.red*100)}%)</span><span>USD ${fmt(c.moM2)}</span></div>
+    <div class="tot-line"><span>Fiscal de obra${c.fiscalTotal>0?' (total USD '+fmt(c.fiscalTotal)+')':''}</span><span>USD ${fmt(c.fiscalM2)}</span></div>
+    <div class="tot-line big" style="font-size:13px;"><span>COSTO</span><span>USD ${fmt(c.costoM2)}/m² · USD ${fmt(c.costoTotal)} obra</span></div>
+    <div class="tot-line"><span>Margen ${segNombre} (${Math.round(c.mg*100)}% s/precio)</span><span>USD ${fmt(c.rent)}</span></div>
+    <div class="tot-line big" style="font-size:13px;color:#C9A227;"><span>PRECIO INSTALACIÓN</span><span>USD ${fmt(c.precioM2)}/m² · USD ${fmt(c.precioTotal)} obra</span></div>
+    ${descPct>0 ? '<div class="tot-line"><span>Rentabilidad real con descuento de cierre '+descPct+'%</span><span>USD '+fmt(rentReal)+'</span></div>' : ''}`;
+  const warns=[];
+  if (c.m2<=0) warns.push('Cargá los m² a instalar.');
+  if (!I.tipoId) warns.push('Elegí el tipo de colocación.');
+  if (I.modo==='int' && !cot.items.length) warns.push('Modo integrado: agregá el producto al carrito primero.');
+  document.getElementById('instWarn').innerHTML = warns.length ? '<div class="inst-warn">⚠ '+warns.join(' · ')+'</div>' : '';
+  if (!skipCart) renderCart();
+}
+
+// Bloque "LA INSTALACIÓN INCLUYE" para el PDF (sin costos)
+function instIncludeHtml(I) {
+  if (!I || !I.on) return '';
+  const li = [];
+  if (I.tipos && I.tipos.length) li.push('<b>Mano de obra:</b> ' + I.tipos.join(' + ') + ' — equipo de ' + (I.equipo||'colocadores') + '.');
+  if (I.fiscal) li.push('<b>Supervisión técnica de obra</b> (fiscal técnico).');
+  if (I.mats && I.mats.length) li.push('<b>Materiales de instalación:</b> ' + I.mats.join(', ') + '.');
+  if (I.perif && I.perif.length) li.push('<b>Servicios:</b> ' + I.perif.join(', ') + '.');
+  if (!li.length) return '';
+  return `
+    <div class="pr-sec">
+      <div class="pr-sec-t">La instalación incluye (${fmtAR(I.m2,2)} m²)</div>
+      <div style="font-size:10.5px;line-height:1.55;color:#333;">${li.map(x=>'• '+x).join('<br>')}</div>
+    </div>`;
+}
+
+const API = {
+  async get(params) {
+    const q = Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+    const res = await fetch(CONFIG.API_URL + '?' + q);
+    return res.json();
+  },
+  async post(body) {
+    const res = await fetch(CONFIG.API_URL, { method:'POST', body: JSON.stringify(body) });
+    return res.json();
+  }
+};
+
+// ---------- Estado ----------
+let currentUser = null;
+let CLIENTES = [];
+let COTS = [];
+let cot = nuevaCotObj();
+
+function nuevaCotObj() {
+  return { id:null, estado:'Borrador', clienteId:'', items:[], descPct:0, comisionArq:false, notas:'', inst: instDefault() };
+}
+
+// ---------- Login ----------
+async function doLogin() {
+  const token = document.getElementById('loginToken').value.trim();
+  if (!token) return;
+  document.getElementById('loginMsg').textContent = 'Verificando…';
+  try {
+    const r = await API.get({ action:'login', token });
+    if (!r.ok) { document.getElementById('loginMsg').textContent = r.error || 'Token inválido'; return; }
+    currentUser = { token, usuario: r.nombre || r.usuario, rol: r.rol };
+    localStorage.setItem('kk_cot_token', token);
+    iniciarApp();
+  } catch(e) {
+    document.getElementById('loginMsg').textContent = 'Error de conexión. ¿Está bien la URL del API?';
+  }
+}
+function logout() {
+  localStorage.removeItem('kk_cot_token');
+  location.reload();
+}
+
+async function iniciarApp() {
+  document.getElementById('viewLogin').classList.add('hidden');
+  document.getElementById('viewApp').classList.remove('hidden');
+  document.getElementById('userName').textContent = currentUser.usuario;
+  traerTC(true);
+  if (!localStorage.getItem('kk_cot_draft')) {
+    const vd0 = currentUser.usuario.indexOf('Christian') === 0 ? 'Christian Holler' : 'Franco Faggioni';
+    document.getElementById('inVend').value = vd0;
+    document.getElementById('inComVend').value = defaultComVend(vd0);
+  }
+  document.getElementById('prodList').innerHTML = '<div style="padding:14px;color:#aaa;">Cargando lista de precios…</div>';
+  document.getElementById('cardInst').classList.add('hidden'); // se muestra solo si llega el Maestro
+  restaurarBorradorLocal();
+  renderCart();
+  await Promise.all([cargarProductos(), cargarMaestro(), cargarClientes(), cargarCots()]);
+  renderProdList();
+  buildInstUI();
+  renderCart();
+}
+
+// Productos de madera EN VIVO desde el Sheet de precios (con respaldo local si falla la red)
+async function cargarProductos() {
+  try {
+    const r = await API.get({ action:'getProductos', token: currentUser.token });
+    if (r.ok && r.productos && r.productos.length) {
+      D = r.productos;
+      localStorage.setItem('kk_D_cache', JSON.stringify(D));
+      return;
+    }
+    throw new Error(r.error || 'sin productos');
+  } catch(e) {
+    const cacheD = localStorage.getItem('kk_D_cache');
+    if (cacheD) { D = JSON.parse(cacheD); return; }
+    document.getElementById('prodList').innerHTML = '<div style="padding:14px;color:#b33;">No pude traer la lista de precios ('+ (e.message||e) +'). Recargá la página.</div>';
+  }
+}
+
+// Maestro de instalación del portal. Si el rol no tiene acceso (ventas),
+// la card 🔧 Instalación queda oculta y se cotiza solo material.
+async function cargarMaestro() {
+  try {
+    const r = await API.get({ action:'getMaestro', token: currentUser.token });
+    if (r.ok) MAESTRO = { tipos:r.tipos||[], materiales:r.materiales||[], perifericos:r.perifericos||[],
+                          escaladores:r.escaladores||[], reductores:r.reductores||[], segmentos:r.segmentos||[] };
+  } catch(e) { MAESTRO = null; }
+}
+
+// ---------- Tabs ----------
+function showTab(t) {
+  ['nueva','lista','clientes'].forEach(x => {
+    document.getElementById('pane-'+x).classList.toggle('hidden', x!==t);
+    document.getElementById('tab-'+x).classList.toggle('active', x===t);
+  });
+}
+
+// ---------- Productos ----------
+function fmt(v, dec) { return (v===null||v===undefined) ? '—' : v.toFixed(dec===undefined?2:dec); }
+function decFor(u) { return (u==='m/l'||u==='UN') ? 4 : 2; }
+
+function renderProdList() {
+  const q = document.getElementById('prodSearch').value.toLowerCase();
+  const el = document.getElementById('prodList');
+  let list = D.map((p,i)=>({p,i}));
+  if (q) list = list.filter(({p}) => [p.cat,p.madera,p.perfil,p.linea,p.medidas].join(' ').toLowerCase().includes(q));
+  el.innerHTML = list.slice(0,80).map(({p,i}) => `
+    <div class="prod-row" onclick="agregarItem(${i})">
+      <div>
+        <div class="p-name">${p.madera} · ${p.perfil}${p.super?'<span class="badge-super">🔷</span>':p.special?'<span class="badge-fav">⭐</span>':''}</div>
+        <div class="p-sub">${p.cat} · ${p.medidas} · ${p.largos}</div>
+      </div>
+      <div class="p-price">USD ${fmt(p.a, decFor(p.u))} <small>/${p.u}</small></div>
+    </div>`).join('') || '<div style="padding:14px;color:#aaa;">Sin resultados</div>';
+}
+
+function agregarItem(i) {
+  const p = D[i];
+  const ex = cot.items.find(it => it.idx===i && !it.conClip);
+  if (ex && p.con_clip_a===undefined) { ex.cant += 1; renderCart(); return; }
+  cot.items.push({
+    idx:i, desc:`${p.madera} ${p.perfil}`, cat:p.cat, medidas:p.medidas, largos:p.largos,
+    u:p.u, precio:p.a, cant:1, conClip:false
+  });
+  renderCart();
+}
+
+function toggleClip(k) {
+  const it = cot.items[k]; const p = D[it.idx];
+  it.conClip = !it.conClip;
+  it.precio = it.conClip ? p.con_clip_a : p.a;
+  renderCart();
+}
+function setCant(k, v) { cot.items[k].cant = parseFloat(v)||0; renderCart(false); }
+function quitarItem(k) { cot.items.splice(k,1); renderCart(); }
+
+function capDesc() {
+  const el = document.getElementById('inDesc');
+  let v = parseFloat(el.value)||0;
+  if (v > MAX_DESC) { v = MAX_DESC; el.value = MAX_DESC; }
+  if (v < 0) { v = 0; el.value = 0; }
+  cot.descPct = v;
+}
+
+// ---------- Carrito y totales ----------
+function totales() {
+  const sub = itemsView().reduce((s,it)=>s + it.precio*it.cant, 0);
+  const pct = Math.min(Math.max(parseFloat(document.getElementById('inDesc').value)||0,0),MAX_DESC);
+  const desc = sub*pct/100;
+  const total = sub - desc;
+  const arq = document.getElementById('inArq').checked;
+  const com = arq ? total*0.05 : 0;
+  const comVendPct = Math.min(Math.max(parseFloat(document.getElementById('inComVend').value)||0,0),100);
+  const comVend = total*comVendPct/100;
+  return { sub, pct, desc, total, arq, com, comVendPct, comVend, neto: total-com-comVend };
+}
+
+function renderCart(full) {
+  if (full!==false) {
+    const tb = document.getElementById('cartBody');
+    tb.innerHTML = itemsView().map((it) => {
+      if (it._pseudo) return `<tr style="background:#FBF3DC;">
+        <td><b>🔧 ${it.desc}</b><div style="font-size:11px;color:#888">${it.cat}</div></td>
+        <td>—</td>
+        <td class="num">${fmt(it.cant)} <small>m²</small></td>
+        <td class="num">USD ${fmt(it.precio)}</td>
+        <td class="num"><b>USD ${fmt(it.precio*it.cant)}</b></td>
+        <td><span class="rm" onclick="instToggle(false)" title="Quitar instalación">✕</span></td>
+      </tr>`;
+      const k = it._k;
+      const p = D[it.idx] || {};
+      const clipHtml = (p.con_clip_a!==undefined)
+        ? `<div class="clip-toggle"><label style="display:inline;cursor:pointer;"><input type="checkbox" ${it.conClip?'checked':''} onchange="toggleClip(${k})" style="width:auto"> con clip</label></div>` : '';
+      const mergedTag = it._instMerged ? '<div style="font-size:10px;color:#C9A227;font-weight:800">🔧 instalación integrada al precio</div>' : '';
+      return `<tr${it._instMerged?' style="background:#FBF3DC;"':''}>
+        <td><b>${it.desc}</b><div style="font-size:11px;color:#888">${it.cat}</div>${clipHtml}${mergedTag}</td>
+        <td>${it.medidas}</td>
+        <td class="num"><input class="qty-input" type="number" min="0" step="any" value="${it.cant}" onchange="setCant(${k},this.value)"> <small>${it.u}</small></td>
+        <td class="num">USD ${fmt(it.precio, decFor(it.u))}</td>
+        <td class="num"><b>USD ${fmt(it.precio*it.cant)}</b></td>
+        <td><span class="rm" onclick="quitarItem(${k})">✕</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" style="color:#aaa;padding:16px;">Todavía no agregaste productos.</td></tr>';
+  } else {
+    // solo refrescar subtotales de línea
+    cot.items.forEach((it,k)=>{});
+    return renderCart(true);
+  }
+  if (cot.inst && cot.inst.on && cot.inst.modo==='int') instTargetVis();
+  const t = totales();
+  document.getElementById('tSub').textContent = 'USD ' + fmt(t.sub);
+  document.getElementById('tDescPct').textContent = t.pct;
+  document.getElementById('tDesc').textContent = '— USD ' + fmt(t.desc);
+  document.getElementById('lineDesc').style.display = t.pct>0 ? 'flex' : 'none';
+  document.getElementById('tTotal').textContent = 'USD ' + fmt(t.total);
+  document.getElementById('iComArq').textContent = t.arq ? '— USD ' + fmt(t.com) : '—';
+  document.getElementById('iComVendPct').textContent = t.comVendPct;
+  document.getElementById('iComVend').textContent = t.comVend>0 ? '— USD ' + fmt(t.comVend) : '—';
+  document.getElementById('iNeto').textContent = 'USD ' + fmt(t.neto);
+  guardarBorradorLocal();
+}
+
+// Borrador local: si se corta internet o se cierra la pestaña, no se pierde lo cargado
+function guardarBorradorLocal() {
+  cot.descPct = parseFloat(document.getElementById('inDesc').value)||0;
+  cot.comisionArq = document.getElementById('inArq').checked;
+  cot.notas = document.getElementById('inNotas').value;
+  cot.vendedor = document.getElementById('inVend').value;
+  cot.comVendPct = parseFloat(document.getElementById('inComVend').value)||0;
+  cot.condPago = document.getElementById('inCondPago').value;
+  cot.validez = parseInt(document.getElementById('inValidez').value)||7;
+  cot.lugarEnt = document.getElementById('inLugarEnt').value;
+  cot.plazoEnt = document.getElementById('inPlazoEnt').value;
+  cot.transEnt = document.getElementById('inTransEnt').value;
+  cot.ivaPct = parseFloat(document.getElementById('inIva').value)||0;
+  cot.tc = parseFloat(document.getElementById('inTC').value)||0;
+  cot.clienteId = document.getElementById('selCliente').value;
+  localStorage.setItem('kk_cot_draft', JSON.stringify(cot));
+}
+function restaurarBorradorLocal() {
+  try {
+    const d = JSON.parse(localStorage.getItem('kk_cot_draft')||'null');
+    if (d && d.items && d.items.length) {
+      cot = d;
+      document.getElementById('inDesc').value = cot.descPct||0;
+      document.getElementById('inArq').checked = !!cot.comisionArq;
+      document.getElementById('inNotas').value = cot.notas||'';
+      document.getElementById('inVend').value = cot.vendedor || 'Franco Faggioni';
+      document.getElementById('inComVend').value = (cot.comVendPct!==undefined && cot.comVendPct!==null && cot.comVendPct!=='') ? cot.comVendPct : defaultComVend(document.getElementById('inVend').value);
+      setPdfFields(cot);
+      document.getElementById('cotTitle').textContent = cot.id ? ('Editando ' + cot.id) : 'Nueva cotización (borrador recuperado)';
+    }
+  } catch(e){}
+}
+
+function defaultComVend(v) { return v === 'Christian Holler' ? 5 : 0; }
+function vendCambiado() {
+  document.getElementById('inComVend').value = defaultComVend(document.getElementById('inVend').value);
+  renderCart();
+}
+
+function setPdfFields(c) {
+  document.getElementById('inCondPago').value = (c.condPago!==undefined && c.condPago!=='') ? c.condPago : '80% adelantado + 20% previo a la entrega del material';
+  document.getElementById('inValidez').value = c.validez || 7;
+  document.getElementById('inLugarEnt').value = c.lugarEnt || '';
+  document.getElementById('inPlazoEnt').value = c.plazoEnt || '';
+  document.getElementById('inTransEnt').value = c.transEnt || '';
+  document.getElementById('inIva').value = (c.ivaPct!==undefined && c.ivaPct!==null && c.ivaPct!=='') ? String(c.ivaPct) : '21';
+  document.getElementById('inTC').value = c.tc || '';
+}
+
+function nuevaCot() {
+  cot = nuevaCotObj();
+  document.getElementById('inDesc').value = 0;
+  document.getElementById('inArq').checked = false;
+  document.getElementById('inNotas').value = '';
+  const vd = (currentUser && currentUser.usuario === 'Franco') ? 'Franco Faggioni' : 'Christian Holler';
+  document.getElementById('inVend').value = vd;
+  document.getElementById('inComVend').value = defaultComVend(vd);
+  setPdfFields({});
+  document.getElementById('selCliente').value = '';
+  document.getElementById('cotTitle').textContent = 'Nueva cotización';
+  document.getElementById('cotMsg').textContent = '';
+  localStorage.removeItem('kk_cot_draft');
+  buildInstUI();
+  renderCart();
+}
+
+// ---------- Guardar / cargar cotizaciones ----------
+async function guardarCot() {
+  const msg = document.getElementById('cotMsg');
+  msg.className = 'status-msg';
+  if (cot.items.length===0) { msg.className='status-msg err'; msg.textContent='Agregá al menos un producto.'; return; }
+  const sel = document.getElementById('selCliente');
+  const cliente = CLIENTES.find(c=>c.id===sel.value);
+  if (!cliente) { msg.className='status-msg err'; msg.textContent='Elegí un cliente (o creá uno nuevo).'; return; }
+  guardarBorradorLocal();
+  msg.textContent = 'Guardando…';
+  try {
+    const r = await API.post({
+      action:'cotSave', token: currentUser.token,
+      id: cot.id, estado: cot.estado,
+      clienteId: cliente.id, clienteNombre: cliente.razonSocial,
+      items: itemsView().map(it=>({desc:it.desc, cat:it.cat, medidas:it.medidas, u:it.u, precio:it.precio, cant:it.cant, conClip:it.conClip})),
+      inst: instSnapshot(),
+      instCfg: instCfg(),
+      vendedor: cot.vendedor || document.getElementById('inVend').value,
+      comVendPct: cot.comVendPct || 0,
+      padreId: cot.padreId || '',
+      descPct: cot.descPct, comisionArq: cot.comisionArq, notas: cot.notas,
+      condPago: cot.condPago, validez: cot.validez, lugarEnt: cot.lugarEnt,
+      plazoEnt: cot.plazoEnt, transEnt: cot.transEnt, ivaPct: cot.ivaPct, tc: cot.tc
+    });
+    if (!r.ok) { msg.className='status-msg err'; msg.textContent = 'Error: ' + r.error; return; }
+    cot.id = r.id;
+    document.getElementById('cotTitle').textContent = 'Editando ' + cot.id;
+    msg.textContent = '✓ Guardada como ' + r.id;
+    aprenderOpciones();
+    localStorage.removeItem('kk_cot_draft');
+    cargarCots();
+  } catch(e) {
+    msg.className='status-msg err'; msg.textContent = 'Error de conexión. El borrador quedó guardado localmente.';
+  }
+}
+
+async function cargarCots() {
+  try {
+    const r = await API.get({ action:'cotList', token: currentUser.token });
+    if (r.ok) { COTS = r.cots; renderCotList(); }
+  } catch(e){ document.getElementById('cotList').innerHTML = '<div style="color:#b33;padding:14px;">Error de conexión</div>'; }
+}
+
+const ESTADOS = ['Borrador','Enviada','Negociación','Stand-by','Aprobada','Perdida'];
+const ESTADOS_FRIOS = ['Borrador','Enviada','Negociación']; // recuerdan a los 10 días
+const ESTADOS_TERMINALES = ['Aprobada','Perdida','Reemplazada'];
+
+function parseFechaAR_(s) {
+  if (!s) return null;
+  const m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  return new Date(+m[3], +m[2]-1, +m[1], +(m[4]||0), +(m[5]||0));
+}
+function diasSinMov_(c) {
+  const d = parseFechaAR_(c.actualizado) || parseFechaAR_(c.fecha);
+  return d ? Math.floor((Date.now() - d.getTime()) / 86400000) : 0;
+}
+// Borrador/Enviada/Negociación recuerdan a los 10 días.
+// Stand-by (pausada a propósito), Aprobada, Perdida y Reemplazada, no.
+function necesitaSeguimiento_(c) {
+  return ESTADOS_FRIOS.includes(c.estado) && diasSinMov_(c) >= 10;
+}
+async function registrarSeguimiento(id) {
+  const c = COTS.find(x=>x.id===id); if (!c) return;
+  const r = await API.post({ action:'cotEstado', id, estado: c.estado, token: currentUser.token });
+  if (!r.ok) return alert('Error: ' + r.error);
+  cargarCots();
+}
+
+// --- Nueva versión: misma operación con el cliente, presupuesto nuevo.
+// La anterior queda guardada como "Reemplazada" (se puede reabrir o imprimir).
+async function nuevaVersion(id) {
+  await abrirCot(id, true); // duplica con precios vigentes
+  cot.padreId = id;
+  document.getElementById('cotTitle').textContent = '⑂ Nueva versión de ' + id;
+  document.getElementById('cotMsg').textContent = 'Misma operación, presupuesto nuevo: al guardar toma número propio y ' + id + ' pasa a "Reemplazada" (queda guardada por si hay que volver).';
+}
+
+// --- Comentarios / bitácora de la operación ---
+async function toggleComentarios(id) {
+  const p = document.getElementById('com-' + id);
+  if (!p) return;
+  if (!p.classList.contains('hidden')) { p.classList.add('hidden'); return; }
+  p.classList.remove('hidden');
+  p.innerHTML = '<div style="color:#aaa;font-size:12px;">Cargando…</div>';
+  try {
+    const r = await API.get({ action:'cotComentarios', id, token: currentUser.token });
+    const coms = (r.ok && r.comentarios) ? r.comentarios : [];
+    p.innerHTML = `
+      <div>${coms.map(c=>`<div class="com-item"><span class="com-meta">${c.fecha} — <b>${c.usuario}</b></span>${c.texto}</div>`).join('') || '<div style="color:#aaa;font-size:12px;">Sin comentarios todavía.</div>'}</div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <input type="text" id="comTxt-${id}" placeholder="Ej: pidió 3% extra, confirma la semana que viene…" style="flex:1" onkeydown="if(event.key==='Enter')agregarComentario('${id}')">
+        <button class="btn btn-gold" onclick="agregarComentario('${id}')">Agregar</button>
+      </div>`;
+  } catch(e) {
+    p.innerHTML = '<div style="color:#b33;font-size:12px;">Error de conexión.</div>';
+  }
+}
+async function agregarComentario(id) {
+  const inp = document.getElementById('comTxt-' + id);
+  const texto = (inp.value||'').trim(); if (!texto) return;
+  inp.disabled = true;
+  try {
+    const r = await API.post({ action:'cotAddComentario', id, texto, token: currentUser.token });
+    if (!r.ok) { alert('Error: ' + r.error); inp.disabled = false; return; }
+    await cargarCots();               // refresca contador 💬 y reinicia el reloj de 10 días
+    toggleComentarios(id);            // reabre el panel con el comentario nuevo
+  } catch(e) { alert('Error de conexión'); inp.disabled = false; }
+}
+
+function renderCotList() {
+  const q = (document.getElementById('cotSearch').value||'').toLowerCase();
+  const est = document.getElementById('cotEstadoFilter').value;
+  const vend = document.getElementById('cotVendFilter').value;
+  const soloSeg = document.getElementById('cotSoloSeg').checked;
+  const el = document.getElementById('cotList');
+
+  const pend = COTS.filter(necesitaSeguimiento_);
+  document.getElementById('tab-lista').textContent = '📋 Guardadas' + (pend.length ? ' · ⏰' + pend.length : '');
+  document.getElementById('segBanner').innerHTML = pend.length
+    ? `<div class="seg-banner">⏰ <b>${pend.length}</b> cotizaci${pend.length>1?'ones':'ón'} sin movimiento hace 10+ días
+       <button class="btn btn-dark" style="padding:4px 10px;font-size:11px;" onclick="document.getElementById('cotSoloSeg').checked=true;renderCotList()">Ver pendientes</button></div>`
+    : '';
+
+  let list = COTS;
+  if (est) list = list.filter(c=>c.estado===est);
+  if (vend) list = list.filter(c=>c.vendedor===vend);
+  if (soloSeg) list = list.filter(necesitaSeguimiento_);
+  if (q) list = list.filter(c=>(c.id+' '+c.clienteNombre).toLowerCase().includes(q));
+
+  el.innerHTML = list.map(c => {
+    const dias = diasSinMov_(c);
+    const seg = necesitaSeguimiento_(c);
+    const terminal = ESTADOS_TERMINALES.includes(c.estado);
+    const esReemp = c.estado === 'Reemplazada';
+    return `
+    <div class="cot-row${esReemp?' reemplazada':''}">
+      <div style="flex:1;min-width:200px;">
+        <span class="c-id">${c.id}</span> — ${c.clienteNombre||'<i>sin cliente</i>'}
+        ${c.padreId?'<span class="ver-tag">⑂ v. de '+c.padreId+'</span>':''}
+        ${c.comisionArq?'<span class="flag-arq">◆ arq.</span>':''}
+        ${seg ? '<span class="seg-badge">⏰ '+dias+' días sin movimiento</span>' : (terminal ? '' : '<span class="seg-ok">hace '+dias+' d</span>')}
+        <div class="c-sub">${c.fecha} · ${c.vendedor ? c.vendedor+' · ' : ''}${c.resumen}</div>
+      </div>
+      <div style="font-weight:800;white-space:nowrap;">USD ${Number(c.total).toFixed(2)}</div>
+      ${esReemp
+        ? '<span class="estado e-Reemplazada">Reemplazada</span>'
+        : `<select onchange="cambiarEstado('${c.id}',this.value)" style="font-size:12px;padding:4px;">${ESTADOS.map(e=>`<option ${e===c.estado?'selected':''}>${e}</option>`).join('')}</select>`}
+      <div class="row-actions">
+        <button class="btn btn-ghost" title="Comentarios / bitácora" onclick="toggleComentarios('${c.id}')">💬 ${c.nComentarios||0}</button>
+        ${terminal ? '' : `<button class="btn btn-ghost" title="Reinicia el contador de 10 días sin cambiar el estado" onclick="registrarSeguimiento('${c.id}')">✓ Seguida</button>`}
+        ${esReemp ? '' : `<button class="btn btn-ghost" title="Presupuesto nuevo para la misma operación" onclick="nuevaVersion('${c.id}')">⑂ Versión</button>`}
+        <button class="btn btn-ghost" onclick="abrirCot('${c.id}')">Abrir</button>
+        <button class="btn btn-ghost" onclick="abrirCot('${c.id}', true)">Duplicar</button>
+        <button class="btn btn-dark" onclick="pdfDesdeLista('${c.id}')">PDF</button>
+        <button class="btn btn-danger" onclick="eliminarCot('${c.id}')">✕</button>
+      </div>
+    </div>
+    <div class="com-panel hidden" id="com-${c.id}"></div>`;
+  }).join('') || '<div style="color:#aaa;padding:14px;">No hay cotizaciones con esos filtros.</div>';
+}
+
+async function abrirCot(id, duplicar) {
+  const r = await API.get({ action:'cotGet', id, token: currentUser.token });
+  if (!r.ok) return alert('No se pudo cargar: ' + r.error);
+  const c = r.cot;
+  cot = nuevaCotObj();
+  cot.id = duplicar ? null : c.id;
+  cot.estado = duplicar ? 'Borrador' : c.estado;
+  cot.notas = c.notas;
+  cot.descPct = c.descPct;
+  cot.comisionArq = c.comisionArq;
+  cot.clienteId = c.clienteId;
+  cot.vendedor = c.vendedor;
+  cot.padreId = duplicar ? '' : (c.padreId || '');
+  const tieneInstCfg = !!(MAESTRO && c.instCfg && c.inst && c.inst.on); // sin Maestro (ventas), la instalación queda como ítem congelado con su precio guardado
+  cot.inst = tieneInstCfg ? instDesdeCfg(c.instCfg) : instDefault();
+  cot.items = c.items
+    .filter(it => !(tieneInstCfg && it.cat==='Instalación'))  // el ítem de instalación se regenera desde la config
+    .map(it => {
+    // re-vincular al producto actual por descripción+medidas para tomar precio vigente al duplicar
+    const descBase = String(it.desc||'').replace(/ — instalación incluida$/,'');
+    let idx = D.findIndex(p => (p.madera+' '+p.perfil)===descBase && p.medidas===it.medidas);
+    if (it.cat==='Instalación') idx = -1;
+    let precio = it.precio;
+    if (duplicar && idx>=0) precio = (it.conClip && D[idx].con_clip_a!==undefined) ? D[idx].con_clip_a : D[idx].a;
+    if (tieneInstCfg && / — instalación incluida$/.test(String(it.desc||'')) && !duplicar) {
+      // quitar la parte de instalación del precio guardado: se recalcula en vivo
+      const pi = (c.inst.precioTotal||0) / (parseFloat(it.cant)||1);
+      precio = Math.max(0, precio - pi);
+    }
+    return { idx, desc:descBase, cat:it.cat, medidas:it.medidas, u:it.u, precio, cant:it.cant, conClip:!!it.conClip };
+  });
+  document.getElementById('inDesc').value = cot.descPct||0;
+  document.getElementById('inArq').checked = !!cot.comisionArq;
+  document.getElementById('inNotas').value = cot.notas||'';
+  cot.condPago = c.condPago; cot.validez = c.validez; cot.lugarEnt = c.lugarEnt;
+  cot.plazoEnt = c.plazoEnt; cot.transEnt = c.transEnt; cot.ivaPct = c.ivaPct; cot.tc = c.tc;
+  cot.comVendPct = c.comVendPct;
+  document.getElementById('inVend').value = c.vendedor || ((currentUser && currentUser.usuario==='Franco') ? 'Franco Faggioni' : 'Christian Holler');
+  document.getElementById('inComVend').value = (c.comVendPct!==undefined && c.comVendPct!==null && c.comVendPct!=='') ? c.comVendPct : defaultComVend(document.getElementById('inVend').value);
+  setPdfFields(cot);
+  document.getElementById('selCliente').value = cot.clienteId||'';
+  document.getElementById('cotTitle').textContent = duplicar ? ('Nueva cotización (duplicada de '+c.id+')') : ('Editando ' + c.id);
+  document.getElementById('cotMsg').textContent = duplicar ? 'Duplicada con precios vigentes. Guardá para asignarle número nuevo.' : '';
+  buildInstUI();
+  renderCart();
+  showTab('nueva');
+}
+
+async function cambiarEstado(id, estado) {
+  if (estado === 'Aprobada' && !confirm('¿Aprobar ' + id + '? Se crea automáticamente la obra en el Portal de Obras con la instalación precargada.')) { cargarCots(); return; }
+  const r = await API.post({ action:'cotEstado', id, estado, token: currentUser.token });
+  if (!r.ok) { alert('Error: ' + r.error); cargarCots(); return; }
+  if (r.obraCodigo) alert('✓ ' + id + ' aprobada.\nSe creó la obra ' + r.obraCodigo + ' en el Portal de Obras con el H3 precargado.');
+  if (r.obraError) alert('⚠ ' + r.obraError);
+  cargarCots();
+}
+
+async function eliminarCot(id) {
+  if (!confirm('¿Eliminar ' + id + '? (queda registrada en el Sheet como eliminada)')) return;
+  const r = await API.post({ action:'cotDelete', id, token: currentUser.token });
+  if (!r.ok) alert('Error: ' + r.error);
+  cargarCots();
+}
+
+// ---------- Clientes ----------
+async function cargarClientes() {
+  try {
+    const r = await API.get({ action:'cliList', token: currentUser.token });
+    if (r.ok) { CLIENTES = r.clientes; renderClientes(); }
+  } catch(e){}
+}
+
+function renderClientes() {
+  const sel = document.getElementById('selCliente');
+  const val = sel.value;
+  sel.innerHTML = '<option value="">— Elegir cliente —</option>' +
+    CLIENTES.map(c=>`<option value="${c.id}">${c.razonSocial}${c.cuit?' ('+c.cuit+')':''}</option>`).join('');
+  sel.value = val || cot.clienteId || '';
+  document.getElementById('cliList').innerHTML = CLIENTES.map(c=>`
+    <div class="cot-row">
+      <div style="flex:1;"><b>${c.razonSocial}</b><div class="c-sub">${c.cuit||''} ${c.contacto?'· '+c.contacto:''} ${c.telefono?'· '+c.telefono:''} ${c.email?'· '+c.email:''}</div></div>
+      <button class="btn btn-ghost" onclick="editarCliente('${c.id}')">Editar</button>
+    </div>`).join('') || '<div style="color:#aaa;padding:14px;">Sin clientes todavía.</div>';
+}
+
+let cliEditId = null;
+function abrirNuevoCliente() { showTab('clientes'); limpiarCliForm(); document.getElementById('cCuit').focus(); }
+function limpiarCliForm() {
+  cliEditId = null;
+  ['cCuit','cRazon','cContacto','cEmail','cTel','cDir','cLoc','cProv','cCondIva'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cliFormTitle').textContent = 'Nuevo cliente';
+  document.getElementById('cliMsg').textContent = '';
+}
+function editarCliente(id) {
+  const c = CLIENTES.find(x=>x.id===id); if (!c) return;
+  cliEditId = id;
+  document.getElementById('cCuit').value = c.cuit;
+  document.getElementById('cRazon').value = c.razonSocial;
+  document.getElementById('cContacto').value = c.contacto;
+  document.getElementById('cEmail').value = c.email;
+  document.getElementById('cTel').value = c.telefono;
+  document.getElementById('cDir').value = c.direccion;
+  document.getElementById('cLoc').value = c.localidad;
+  document.getElementById('cProv').value = c.provincia || '';
+  document.getElementById('cCondIva').value = c.condIva || '';
+  document.getElementById('cliFormTitle').textContent = 'Editando cliente';
+  showTab('clientes');
+}
+
+async function guardarCliente() {
+  const msg = document.getElementById('cliMsg');
+  const razon = document.getElementById('cRazon').value.trim();
+  if (!razon) { msg.className='status-msg err'; msg.textContent='Falta la razón social / nombre.'; return; }
+  msg.className='status-msg'; msg.textContent='Guardando…';
+  const cliente = {
+    id: cliEditId,
+    cuit: document.getElementById('cCuit').value.trim(),
+    razonSocial: razon,
+    contacto: document.getElementById('cContacto').value.trim(),
+    email: document.getElementById('cEmail').value.trim(),
+    telefono: document.getElementById('cTel').value.trim(),
+    direccion: document.getElementById('cDir').value.trim(),
+    localidad: document.getElementById('cLoc').value.trim(),
+    provincia: document.getElementById('cProv').value.trim(),
+    condIva: document.getElementById('cCondIva').value
+  };
+  try {
+    const r = await API.post({ action:'cliSave', cliente, token: currentUser.token });
+    if (!r.ok) { msg.className='status-msg err'; msg.textContent='Error: '+r.error; return; }
+    msg.textContent = '✓ Cliente guardado';
+    await cargarClientes();
+    if (!cliEditId) { document.getElementById('selCliente').value = r.cliente.id; showTab('nueva'); }
+    limpiarCliForm();
+  } catch(e) { msg.className='status-msg err'; msg.textContent='Error de conexión'; }
+}
+
+// CUIT → ARCA: 1) backend Apps Script, 2) AFIP directo con reintentos, 3) fuente alternativa
+function pintarCliente(razon, dir, loc, prov) {
+  if (razon) document.getElementById('cRazon').value = razon;
+  if (dir) document.getElementById('cDir').value = dir;
+  if (loc) document.getElementById('cLoc').value = loc;
+  if (prov) document.getElementById('cProv').value = prov;
+}
+async function buscarCuit() {
+  const msg = document.getElementById('cliMsg');
+  const cuit = document.getElementById('cCuit').value.replace(/\D/g,'');
+  if (cuit.length !== 11) { msg.className='status-msg err'; msg.textContent='CUIT inválido (11 dígitos).'; return; }
+  msg.className='status-msg';
+
+  // 1) Backend propio (Apps Script)
+  msg.textContent = 'Consultando ARCA (backend)…';
+  try {
+    const r = await API.get({ action:'cuit', cuit, token: currentUser.token });
+    if (r.ok && (r.razonSocial || r.direccion)) {
+      pintarCliente(r.razonSocial, r.direccion, r.localidad, r.provincia);
+      msg.textContent = '✓ Datos traídos de ARCA';
+      return;
+    }
+  } catch(e) {}
+
+  // 2) AFIP directo desde el navegador (a veces CORS lo permite; 3 intentos)
+  msg.textContent = 'Consultando ARCA (directo)…';
+  for (let intento=0; intento<3; intento++) {
+    try {
+      const res = await fetch('https://soa.afip.gob.ar/sr-padron/v2/persona/' + cuit);
+      const d = await res.json();
+      if (d.success && d.data) {
+        const p = d.data, dom = p.domicilioFiscal || {};
+        pintarCliente(p.nombre || ((p.apellido||'')+' '+(p.nombre||'')).trim(),
+                      dom.direccion, dom.localidad, dom.descripcionProvincia);
+        msg.textContent = '✓ Datos traídos de ARCA';
+        return;
+      }
+    } catch(e) {}
+    await new Promise(r=>setTimeout(r, 500));
+  }
+
+  // 3) Fuente alternativa
+  msg.textContent = 'Consultando fuente alternativa…';
+  try {
+    const res = await fetch('https://afip.tangofactura.com/Rest/GetContribuyenteFull?cuit=' + cuit);
+    const d = await res.json();
+    if (d && d.Contribuyente) {
+      const dom = d.Contribuyente.domicilioFiscal || {};
+      pintarCliente(d.Contribuyente.nombre, dom.direccion, dom.localidad, dom.descripcionProvincia);
+      msg.textContent = '✓ Datos traídos (fuente alternativa)';
+      return;
+    }
+  } catch(e) {}
+
+  msg.className='status-msg err';
+  msg.textContent = 'ARCA no respondió por ninguna vía — cargá los datos a mano.';
+}
+
+// ---------- PDF (impresión) — SIN comisión arquitecto ni datos internos ----------
+const LOGO_B64 = 'data:image/png;base64,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';
+const EMPRESA = {
+  nombre: 'KOKKAI THERMO WOOD ARGENTINA SRL',   // razón social
+  dir1: 'Ruta 11 Km 396 — Colectora 3, Local 13',
+  dir2: 'Gral. Madariaga, Buenos Aires',
+  tel: '+54 11 3319-8445',
+  mail: 'info@kokkai.ar',
+  fiscal: 'CUIT: 30-71881793-1 · IVA RESPONSABLE INSCRIPTO',
+  tycLink: 'https://drive.google.com/file/d/1pmVNUOsr5pCW26M-aMO5uVSBtSP9PJ2t/view?usp=drive_link'
+};
+// Opciones desplegables: defaults + lo que se va usando (queda guardado en el dispositivo)
+const OPT_DEFAULTS = {
+  CondPago: ['80% adelantado + 20% previo a la entrega del material', '100% adelantado', '50% adelantado + 50% contra entrega'],
+  LugarEnt: ['Retira en local — Gral. Madariaga', 'Entrega en obra'],
+  PlazoEnt: ['Inmediato (sujeto a stock)', '15 días de confirmado el pago', '30 días de confirmado el pago', '90-120 días (importación)'],
+  TransEnt: ['A cargo del comprador', 'Incluido en el precio', 'A cotizar según destino']
+};
+function cargarOpciones() {
+  Object.keys(OPT_DEFAULTS).forEach(f => {
+    const extra = JSON.parse(localStorage.getItem('kk_opts_'+f)||'[]');
+    const all = [...new Set([...OPT_DEFAULTS[f], ...extra])];
+    document.getElementById('dl'+f).innerHTML = all.map(o=>`<option value="${o.replace(/"/g,'&quot;')}">`).join('');
+  });
+}
+function aprenderOpciones() {
+  Object.keys(OPT_DEFAULTS).forEach(f => {
+    const v = document.getElementById('in'+f).value.trim();
+    if (!v || OPT_DEFAULTS[f].includes(v)) return;
+    const extra = JSON.parse(localStorage.getItem('kk_opts_'+f)||'[]');
+    if (!extra.includes(v)) { extra.push(v); localStorage.setItem('kk_opts_'+f, JSON.stringify(extra)); }
+  });
+  cargarOpciones();
+}
+
+// Tipo de cambio: dólar oficial VENTA (sigue la pizarra billete del BNA)
+async function traerTC(silent) {
+  const inp = document.getElementById('inTC');
+  const msg = document.getElementById('tcMsg');
+  if (silent === true && inp.value) return; // no pisar un valor cargado a mano
+  if (silent !== true) { msg.className='status-msg'; msg.textContent = 'Consultando…'; }
+  try {
+    const r = await fetch('https://dolarapi.com/v1/dolares/oficial');
+    const d = await r.json();
+    if (d && d.venta) return aplicarTC(d.venta, d.fechaActualizacion);
+  } catch(e) {}
+  try {
+    const r = await fetch('https://api.bluelytics.com.ar/v2/latest');
+    const d = await r.json();
+    if (d && d.oficial && d.oficial.value_sell) return aplicarTC(d.oficial.value_sell, d.last_update);
+  } catch(e) {}
+  msg.className='status-msg err';
+  msg.textContent = 'No se pudo traer la cotización — cargala a mano.';
+}
+function aplicarTC(v, fecha) {
+  document.getElementById('inTC').value = Number(v).toFixed(2);
+  const msg = document.getElementById('tcMsg');
+  msg.className = 'status-msg';
+  msg.textContent = '✓ Oficial venta $ ' + Number(v).toLocaleString('es-AR', {minimumFractionDigits:2}) +
+    (fecha ? ' — ' + new Date(fecha).toLocaleDateString('es-AR') : '');
+  guardarBorradorLocal();
+}
+
+function fmtAR(v, dec) {
+  dec = dec===undefined ? 2 : dec;
+  return Number(v||0).toLocaleString('es-AR', { minimumFractionDigits:dec, maximumFractionDigits:dec });
+}
+function fv(v, inputId, dflt) { // valor de la cot → si falta, valor del form → si falta, default
+  if (v!==undefined && v!==null && v!=='') return v;
+  const el = document.getElementById(inputId);
+  if (el && el.value!=='') return el.value;
+  return dflt;
+}
+
+function buildPrint(c, clienteObj) {
+  const hoy = new Date().toLocaleDateString('es-AR');
+  const cli = clienteObj || {};
+  const condPago = fv(c.condPago, 'inCondPago', '80% adelantado + 20% previo a la entrega del material');
+  const validez = parseInt(fv(c.validez, 'inValidez', 7)) || 7;
+  const lugarEnt = fv(c.lugarEnt, 'inLugarEnt', '');
+  const plazoEnt = fv(c.plazoEnt, 'inPlazoEnt', '');
+  const transEnt = fv(c.transEnt, 'inTransEnt', '');
+  const ivaPct = parseFloat(fv(c.ivaPct, 'inIva', 21)) || 0;
+  const tc = parseFloat(fv(c.tc, 'inTC', 0)) || 0;
+  const vto = new Date(Date.now() + validez*86400000).toLocaleDateString('es-AR');
+
+  const rows = c.items.map((it,i)=>`
+    <tr>
+      <td class="num" style="color:#777">${i+1}</td>
+      <td><b>${it.desc}</b>${it.conClip?' — con clip':''}<div class="pr-item-sub">${it.cat}</div></td>
+      <td>${it.medidas}</td>
+      <td class="num">${fmtAR(it.cant, 2)}</td>
+      <td>${it.u}</td>
+      <td class="num">${fmtAR(it.precio, decFor(it.u))}</td>
+      <td class="num"><b>${fmtAR(it.precio*it.cant)}</b></td>
+    </tr>`).join('');
+
+  const sub = c.items.reduce((s,it)=>s+it.precio*it.cant,0);
+  const descPct = c.descPct||0;
+  const desc = sub*descPct/100;
+  const neto = sub - desc;
+  const iva = neto*ivaPct/100;
+  const total = neto + iva;
+  const pesos = tc>0 ? total*tc : 0;
+
+  const field = (lab,val,full) => `<div class="pr-field${full?' full':''}"><div class="pr-lab">${lab}</div><div class="pr-val">${val||''}</div></div>`;
+
+  document.getElementById('printArea').innerHTML = `
+  <div class="pr-doc">
+    <div class="pr-top">
+      <img class="pr-logo" src="${LOGO_B64}" alt="Kokkai — Cladding & Flooring">
+      <div class="pr-xwrap"><div class="pr-xbox">X</div><div class="pr-xleg">Documento no válido<br>como factura</div></div>
+      <div class="pr-doc-meta">
+        <div class="pr-tipo">COTIZACIÓN</div>
+        <div class="pr-nro">${c.id ? 'N° '+c.id : 'BORRADOR'}</div>
+        <div class="pr-fec">Fecha: ${hoy} &nbsp;·&nbsp; Válido hasta: ${vto}</div>
+      </div>
+    </div>
+    <div class="pr-band">
+      <span class="kk">KOKKAI</span>
+      <span>${EMPRESA.nombre}</span>
+      <span>${EMPRESA.dir1} · ${EMPRESA.dir2}</span>
+      <span>Tel ${EMPRESA.tel} · ${EMPRESA.mail}</span>
+    </div>
+    <div class="pr-fiscal">${EMPRESA.fiscal}</div>
+
+    <div class="pr-sec">
+      <div class="pr-sec-t">Cliente</div>
+      <div class="pr-grid">
+        ${field('Señor/es', cli.razonSocial)}
+        ${field('CUIT', cli.cuit)}
+        ${field('Domicilio', cli.direccion)}
+        ${field('Localidad', cli.localidad)}
+        ${field('Provincia', cli.provincia)}
+        ${field('Correo electrónico', cli.email)}
+        ${field('Teléfono', cli.telefono)}
+        ${field('Contacto', cli.contacto)}
+        ${field('Condición IVA', cli.condIva)}
+      </div>
+    </div>
+
+    <div class="pr-sec">
+      <div class="pr-sec-t">Condiciones</div>
+      <div class="pr-grid3">
+        ${field('Vendedor', c.vendedor || (currentUser ? currentUser.usuario : ''))}
+        ${field('Condición de pago', condPago)}
+        ${field('Vencimiento', vto + ' (' + validez + ' días)')}
+        ${field('Lugar de entrega', lugarEnt)}
+        ${field('Plazo de entrega', plazoEnt)}
+        ${field('Transporte', transEnt)}
+      </div>
+    </div>
+
+    <div class="pr-sec">
+      <div class="pr-sec-t">Detalle</div>
+      <table class="pr-items">
+        <thead><tr>
+          <th class="num" style="width:22px">#</th><th>Descripción</th><th style="width:80px">Medidas</th>
+          <th class="num" style="width:68px">Cantidad</th><th style="width:48px">Unidad</th>
+          <th class="num" style="width:92px">Precio unit. USD</th><th class="num" style="width:98px">Subtotal USD</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    ${instIncludeHtml(c.inst)}
+    <div class="pr-bottom">
+      <div class="pr-notes-fisc">
+        ${tc>0 ? 'Tipo de cambio utilizado: 1 USD = ARS $ ' + fmtAR(tc) + '.<br>' : ''}
+        Precios expresados en dólares estadounidenses (USD)${ivaPct>0 ? '' : ' — no incluyen IVA'}.<br>
+        Sujeto a disponibilidad de stock al momento de la confirmación.<br>
+        Medidas de ancho expresadas en ancho bruto.
+      </div>
+      <div class="pr-totales">
+        <div class="tl"><span>SUBTOTAL</span><span>USD ${fmtAR(sub)}</span></div>
+        ${descPct>0 ? '<div class="tl"><span>DESCUENTO ('+descPct+'%)</span><span>— USD '+fmtAR(desc)+'</span></div>' : ''}
+        ${ivaPct>0 ? '<div class="tl"><span>IVA ('+String(ivaPct).replace('.',',')+'%)</span><span>USD '+fmtAR(iva)+'</span></div>' : ''}
+        <div class="tl big"><span>TOTAL</span><span>USD ${fmtAR(total)}</span></div>
+        ${tc>0 ? '<div class="tl pesos"><span>TOTAL PESOS</span><span>$ '+fmtAR(pesos)+'</span></div>' : ''}
+      </div>
+    </div>
+
+    <div class="pr-obs"><b>Observaciones</b>${c.notas || '—'}</div>
+
+    <div class="pr-cond">
+      Por favor revise nuestros Términos y Condiciones de Compra y Límites de Garantía en el siguiente enlace:
+      ${EMPRESA.tycLink} — La compra de nuestros productos implica la aceptación de estas condiciones.
+    </div>
+  </div>`;
+}
+
+function imprimirPdf() {
+  guardarBorradorLocal();
+  aprenderOpciones();
+  const cli = CLIENTES.find(c=>c.id===document.getElementById('selCliente').value);
+  buildPrint({ id:cot.id, items:itemsView(), inst:instSnapshot(), descPct:cot.descPct, notas:cot.notas, vendedor:cot.vendedor,
+    condPago:cot.condPago, validez:cot.validez, lugarEnt:cot.lugarEnt,
+    plazoEnt:cot.plazoEnt, transEnt:cot.transEnt, ivaPct:cot.ivaPct, tc:cot.tc }, cli);
+  window.print();
+}
+
+async function pdfDesdeLista(id) {
+  const r = await API.get({ action:'cotGet', id, token: currentUser.token });
+  if (!r.ok) return alert('No se pudo cargar');
+  const cli = CLIENTES.find(c=>c.id===r.cot.clienteId);
+  buildPrint(r.cot, cli || { razonSocial: r.cot.clienteNombre });
+  window.print();
+}
+
+// ---------- Arranque ----------
+(function init(){
+  cargarOpciones();
+  const saved = localStorage.getItem('kk_cot_token');
+  if (saved) {
+    document.getElementById('loginToken').value = saved;
+    doLogin();
+  }
+})();
+</script>
+</body>
+</html>
