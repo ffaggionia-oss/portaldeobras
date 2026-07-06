@@ -151,3 +151,19 @@ const API = {
 function isConfigured() {
   return CONFIG.API_URL && CONFIG.API_URL.indexOf('http') === 0;
 }
+
+// ---- Facturas de compra (H5) ----
+API.facturaSubir = async function(obraId, proveedor, concepto, monto, filename, mimeType, base64Data, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'facturaSubir', obraId, proveedor, concepto, monto, filename, mimeType, base64Data, token })
+  });
+  return res.json();
+};
+API.facturaBorrar = async function(id, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'facturaBorrar', id, token })
+  });
+  return res.json();
+};

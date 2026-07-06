@@ -61,6 +61,72 @@ function renderH4(obra) {
         <div class="check-text">Marcar H4 · Financiero como completo</div>
       </div>
     </div>
+
+    ${renderPlanVsReal(obra)}
+  `;
+}
+
+// ============================================
+// PLAN vs REAL — solo Gerencia (Nicolás y Franco).
+// Expectativa: el costo y la ganancia planificados que quedaron CONGELADOS
+// en la cotización al aprobarse. Realidad: las facturas de compra cargadas
+// en H5 y el financiero actual de la obra. Sirve para cerrar la obra
+// comparando qué se esperaba contra qué pasó.
+// ============================================
+function renderPlanVsReal(obra) {
+  const pvr = obra.planVsReal;
+  if (!pvr || !pvr.plan) {
+    return pvr ? `
+    <div class="section">
+      <div class="section-title">Plan vs Real — solo Gerencia</div>
+      <div class="small-note">Esta obra no vino de una cotización aprobada (o la cotización no tenía costo planificado), así que no hay expectativa congelada para comparar.${pvr.cantFacturas ? ' Compras reales cargadas hasta ahora: <b>USD ' + pvr.comprasReales.toFixed(2) + '</b> (' + pvr.cantFacturas + ' factura' + (pvr.cantFacturas===1?'':'s') + ').' : ''}</div>
+    </div>` : '';
+  }
+  const p = pvr.plan;
+  const f = obra.h4 || {};
+  const mt2 = (obra.h3 && parseFloat(obra.h3.mt2)) || 0;
+  const costoActual = (f.costoTotalMt2 || 0) * mt2;            // costo H3 con datos de hoy
+  const desvCompras = pvr.comprasReales - (p.costoTotal || 0);
+  const desvPct = p.costoTotal ? (desvCompras / p.costoTotal) * 100 : 0;
+  const gananciaEsperada = p.gananciaNominal || 0;
+  const gananciaActual = f.rentabilidadTotal || 0;
+  const colorDesv = desvCompras > 0 ? 'var(--warn, #c77700)' : 'var(--ok, #1a7f37)';
+  const fmt2 = (n) => (Math.round(n * 100) / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `
+    <div class="section">
+      <div class="section-title">Plan vs Real — solo Gerencia</div>
+      <div class="small-note">Expectativa congelada al aprobar la cotización <b>${escapeHtml(pvr.origenCot || p.cotId || '')}</b>${p.fecha ? ' (' + escapeHtml(p.fecha) + ')' : ''}. La realidad sale de las facturas cargadas en H5 y del financiero actual.</div>
+      <table class="calc-table" style="margin-top:10px;">
+        <thead><tr><th>Concepto</th><th>Expectativa (cotización)</th><th>Realidad</th><th>Desvío</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Costo de la instalación</td>
+            <td class="num">USD ${fmt2(p.costoTotal || 0)}</td>
+            <td class="num">USD ${fmt2(pvr.comprasReales)} <span class="small-note">(${pvr.cantFacturas} factura${pvr.cantFacturas===1?'':'s'})</span></td>
+            <td class="num" style="color:${colorDesv};font-weight:700;">${desvCompras>=0?'+':''}USD ${fmt2(desvCompras)} (${desvPct>=0?'+':''}${desvPct.toFixed(1)}%)</td>
+          </tr>
+          <tr>
+            <td>Costo según H3 hoy</td>
+            <td class="num">USD ${fmt2(p.costoTotal || 0)}</td>
+            <td class="num">USD ${fmt2(costoActual)}</td>
+            <td class="num">${costoActual - (p.costoTotal||0) >= 0 ? '+' : ''}USD ${fmt2(costoActual - (p.costoTotal||0))}</td>
+          </tr>
+          <tr>
+            <td>Precio de instalación al cliente</td>
+            <td class="num">USD ${fmt2(p.precioTotal || 0)}</td>
+            <td class="num">USD ${fmt2(f.totalObra || 0)}</td>
+            <td class="num">${(f.totalObra||0) - (p.precioTotal||0) >= 0 ? '+' : ''}USD ${fmt2((f.totalObra||0) - (p.precioTotal||0))}</td>
+          </tr>
+          <tr class="total-row">
+            <td>Ganancia nominal</td>
+            <td class="num">USD ${fmt2(gananciaEsperada)}</td>
+            <td class="num">USD ${fmt2(gananciaActual)}</td>
+            <td class="num" style="font-weight:700;">${gananciaActual - gananciaEsperada >= 0 ? '+' : ''}USD ${fmt2(gananciaActual - gananciaEsperada)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="small-note" style="margin-top:8px;">Para el cierre real contra caja: <b>ganancia real ≈ precio al cliente − facturas de compra − mano de obra pagada</b>. Cargá todas las facturas en H5 · Compras para que este cuadro sea fiel.</div>
+    </div>
   `;
 }
 
