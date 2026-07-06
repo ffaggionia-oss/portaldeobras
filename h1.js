@@ -1,5 +1,8 @@
 // ============================================
 // H1 — Diagnóstico Inicial de Obra
+// TODO ítem del relevamiento se responde con SÍ / NO + especificación.
+// Nada queda ambiguo: lo que no se respondió aparece como "SIN RESPONDER"
+// (acá y en el entregable), así se ve de un vistazo qué falta relevar.
 // ============================================
 
 const H1_CHECKLIST_REVESTIMIENTO = [
@@ -52,6 +55,16 @@ const H1_PROBLEMAS_COMUNES = [
   '¿Precisa trabajo nocturno?'
 ];
 
+// Normaliza una fila vieja (checkbox marcado) al formato nuevo (respuesta si/no).
+function h1NormRow_(row) {
+  const r = Object.assign({}, row || {});
+  if (r.respuesta === undefined || r.respuesta === null) {
+    r.respuesta = r.marcado ? 'si' : '';
+  }
+  if (r.nota === undefined) r.nota = '';
+  return r;
+}
+
 function h1Default() {
   return {
     cliente: '', colocador: '', fechaVisita: '', direccion: '',
@@ -59,48 +72,88 @@ function h1Default() {
     mt2Franco: '', mt2Relevados: '', barrioPrivado: '', casaODepto: '', tipoProducto: '', productos: [],
     tipoInstalacion: { revestimiento: false, deck: false, pisos: false, sauna: false, otro: false, otroEspecificar: '' },
     interiorExterior: '',
-    revestimientoChecklist: H1_CHECKLIST_REVESTIMIENTO.map(item => ({ item, marcado: false, nota: '' })),
+    revestimientoChecklist: H1_CHECKLIST_REVESTIMIENTO.map(item => ({ item, respuesta: '', nota: '' })),
     revestimientoNotas: '',
-    deckChecklist: H1_CHECKLIST_DECK.map(item => ({ item, marcado: false, nota: '' })),
+    deckChecklist: H1_CHECKLIST_DECK.map(item => ({ item, respuesta: '', nota: '' })),
     deckNotas: '',
-    pisosChecklist: H1_CHECKLIST_PISOS.map(item => ({ item, marcado: false, nota: '' })),
+    pisosChecklist: H1_CHECKLIST_PISOS.map(item => ({ item, respuesta: '', nota: '' })),
     humedad: [],
-    sistemaPropuestoPisos: H1_SISTEMA_PISOS.map(item => ({ item, marcado: false, nota: '' })),
+    sistemaPropuestoPisos: H1_SISTEMA_PISOS.map(item => ({ item, respuesta: '', nota: '' })),
     pisosNotas: '',
-    problemasComunes: H1_PROBLEMAS_COMUNES.map(item => ({ item, detalle: '' })),
+    problemasComunes: H1_PROBLEMAS_COMUNES.map(item => ({ item, respuesta: '', detalle: '' })),
     notasGenerales: '',
     firmaFiscal: '', fechaEntrega: '',
     _completo: false
   };
 }
 
+// Chips SÍ / NO con estado "sin responder". Clic sobre el mismo chip lo
+// des-selecciona (vuelve a sin responder). El valor vive en un input hidden.
+function h1SiNoChips_(prefix, i, respuesta) {
+  return `
+    <div class="radio-group" id="${prefix}_resp_wrap_${i}" style="flex-shrink:0;">
+      <div class="radio-chip ${respuesta==='si'?'selected':''}" data-val="si" onclick="h1SetResp('${prefix}',${i},'si')">Sí</div>
+      <div class="radio-chip ${respuesta==='no'?'selected':''}" data-val="no" onclick="h1SetResp('${prefix}',${i},'no')">No</div>
+      <input type="hidden" class="h1respin" id="${prefix}_resp_${i}" value="${escapeAttr(respuesta||'')}">
+    </div>`;
+}
+
+function h1SetResp(prefix, i, val) {
+  const hid = document.getElementById(prefix + '_resp_' + i);
+  if (!hid) return;
+  const nuevo = hid.value === val ? '' : val; // segundo clic = sin responder
+  hid.value = nuevo;
+  const wrap = document.getElementById(prefix + '_resp_wrap_' + i);
+  wrap.querySelectorAll('.radio-chip').forEach(ch => ch.classList.toggle('selected', nuevo !== '' && ch.getAttribute('data-val') === nuevo));
+  h1UpdatePendientes();
+  hitoDirty.h1 = true;
+  setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
+}
+
+// Cuenta las preguntas visibles sin responder y actualiza el aviso.
+function h1UpdatePendientes() {
+  const inputs = Array.from(document.querySelectorAll('input.h1respin'));
+  const pendientes = inputs.filter(x => !x.value).length;
+  const badge = document.getElementById('h1_pendientes_badge');
+  if (badge) {
+    badge.innerHTML = pendientes === 0
+      ? '<span style="color:var(--ok, #1a7f37);font-weight:700;">✓ Todas las preguntas del diagnóstico están respondidas</span>'
+      : '<span style="color:var(--warn, #c77700);font-weight:700;">⚠ ' + pendientes + ' pregunta' + (pendientes===1?'':'s') + ' sin responder (Sí/No)</span> — en el entregable van a figurar como SIN RESPONDER.';
+  }
+  return pendientes;
+}
+
 function renderH1(obra) {
   const d = Object.assign(h1Default(), obra.h1 || {}); // merge: un H1 parcial (precargado desde la cotización) completa con los defaults
 
-  // Escribir en la nota activa el checkbox solo
-  const checklistHtml = (arr, keyPrefix) => arr.map((row, i) => `
-    <div class="check-row">
-      <input type="checkbox" id="${keyPrefix}_chk_${i}" ${row.marcado ? 'checked' : ''}>
-      <div class="check-label">
+  // Fila: pregunta + chips Sí/No + especificación. Escribir en la nota marca "Sí" solo.
+  const checklistHtml = (arr, keyPrefix) => arr.map(h1NormRow_).map((row, i) => `
+    <div class="check-row" style="align-items:flex-start;">
+      ${h1SiNoChips_(keyPrefix, i, row.respuesta)}
+      <div class="check-label" style="flex:1;">
         <div class="check-text">${row.item}</div>
         <div class="check-note">
-          <input type="text" id="${keyPrefix}_nota_${i}" placeholder="Nota / especificación" value="${escapeAttr(row.nota || '')}"
-            oninput="if(this.value.trim())document.getElementById('${keyPrefix}_chk_${i}').checked=true">
+          <input type="text" id="${keyPrefix}_nota_${i}" placeholder="Especificación (obligatoria si es Sí)" value="${escapeAttr(row.nota || '')}"
+            oninput="if(this.value.trim() && !document.getElementById('${keyPrefix}_resp_${i}').value) h1SetResp('${keyPrefix}',${i},'si')">
         </div>
       </div>
     </div>
   `).join('');
 
-  const problemasHtml = arr => arr.map((row, i) => `
-    <div class="check-row">
-      <div class="check-label" style="display:flex; gap:10px; align-items:flex-start;">
-        <div class="check-text" style="flex:1;">${row.item}</div>
-        <input type="text" id="prob_detalle_${i}" placeholder="Detalle" value="${escapeAttr(row.detalle || '')}" style="flex:1;">
+  const problemasHtml = arr => arr.map(h1NormRow_).map((row, i) => `
+    <div class="check-row" style="align-items:flex-start;">
+      ${h1SiNoChips_('prob', i, row.respuesta)}
+      <div class="check-label" style="flex:1;">
+        <div class="check-text">${row.item}</div>
+        <div class="check-note">
+          <input type="text" id="prob_detalle_${i}" placeholder="Detalle / especificación" value="${escapeAttr(row.detalle || '')}"
+            oninput="if(this.value.trim() && !document.getElementById('prob_resp_${i}').value) h1SetResp('prob',${i},'si')">
+        </div>
       </div>
     </div>
   `).join('');
 
-  return `
+  const html = `
     <div class="section">
       <div class="section-title">1 · Datos generales</div>
       <div class="small-note" style="margin-bottom:10px;">La ficha del cliente se carga UNA sola vez acá (o llega precargada de la cotización) y se muestra en el Inicio de la obra. Los demás hitos no la repiten.</div>
@@ -161,19 +214,19 @@ function renderH1(obra) {
     </div>
 
     ${!d.tipoInstalacion.revestimiento ? '' : `<div class="section">
-      <div class="section-title">Revestimiento</div>
+      <div class="section-title">Revestimiento <span class="small-note" style="font-weight:400;">— todo se responde Sí / No + especificación</span></div>
       ${checklistHtml(d.revestimientoChecklist, 'rev')}
       <div class="field full" style="margin-top:14px;"><label>Notas sobre revestimientos</label><textarea id="h1_revestimientoNotas">${escapeHtml(d.revestimientoNotas)}</textarea></div>
     </div>`}
 
     ${!d.tipoInstalacion.deck ? '' : `<div class="section">
-      <div class="section-title">Deck</div>
+      <div class="section-title">Deck <span class="small-note" style="font-weight:400;">— todo se responde Sí / No + especificación</span></div>
       ${checklistHtml(d.deckChecklist, 'deck')}
       <div class="field full" style="margin-top:14px;"><label>Notas sobre deck</label><textarea id="h1_deckNotas">${escapeHtml(d.deckNotas)}</textarea></div>
     </div>`}
 
     ${!d.tipoInstalacion.pisos ? '' : `<div class="section">
-      <div class="section-title">Pisos</div>
+      <div class="section-title">Pisos <span class="small-note" style="font-weight:400;">— todo se responde Sí / No + especificación</span></div>
       ${checklistHtml(d.pisosChecklist, 'pisos')}
       <div class="small-note" style="margin-top:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Toma de humedad por zona</div>
       <div id="humedad_container">
@@ -198,7 +251,7 @@ function renderH1(obra) {
     </div>`}
 
     <div class="section">
-      <div class="section-title">Problemas comunes (todas las obras)</div>
+      <div class="section-title">Problemas comunes (todas las obras) <span class="small-note" style="font-weight:400;">— todo se responde Sí / No + detalle</span></div>
       ${problemasHtml(d.problemasComunes)}
     </div>
 
@@ -217,12 +270,16 @@ function renderH1(obra) {
 
     <div class="section">
       <div class="section-title">Estado del hito</div>
+      <div class="small-note" id="h1_pendientes_badge" style="margin-bottom:8px;"></div>
       <div class="check-row">
         <input type="checkbox" id="h1_completo" ${d._completo?'checked':''} onchange="scheduleAutosave()">
         <div class="check-text">Marcar H1 · Diagnóstico como completo</div>
       </div>
     </div>
   `;
+  // Actualiza el contador de pendientes apenas se pinta la pantalla
+  setTimeout(h1UpdatePendientes, 0);
+  return html;
 }
 
 function addHumedadRow() {
@@ -247,14 +304,17 @@ function collectH1() {
   const chkS = (id, fb) => { const e = el(id); return e ? e.checked : fb; };
   const chipS = (id, fb) => { const e = el(id); return e ? (e.getAttribute('data-value') || '') : fb; };
 
-  // checklists: si la sección está oculta (tipo no tildado) se conserva lo guardado
+  // checklists: si la sección está oculta (tipo no tildado) se conserva lo guardado.
+  // Se guarda respuesta ('si'/'no'/'') y también marcado (=== 'si') por compatibilidad
+  // con el entregable y datos viejos.
   const collectChecklist = (items, keyPrefix, prevArr) => {
-    if (!el(keyPrefix + '_chk_0')) return prevArr || items.map(item => ({ item, marcado: false, nota: '' }));
-    return items.map((item, i) => ({
-      item,
-      marcado: chkS(`${keyPrefix}_chk_${i}`, false),
-      nota: valS(`${keyPrefix}_nota_${i}`, '')
-    }));
+    if (!el(keyPrefix + '_resp_0') && !el(keyPrefix + '_nota_0')) {
+      return (prevArr || items.map(item => ({ item, respuesta: '', nota: '' }))).map(h1NormRow_).map(r => ({ item: r.item, respuesta: r.respuesta, marcado: r.respuesta === 'si', nota: r.nota }));
+    }
+    return items.map((item, i) => {
+      const respuesta = valS(`${keyPrefix}_resp_${i}`, '');
+      return { item, respuesta, marcado: respuesta === 'si', nota: valS(`${keyPrefix}_nota_${i}`, '') };
+    });
   };
 
   const humedad = document.querySelector('[data-humedad-row]')
@@ -266,8 +326,11 @@ function collectH1() {
     : (prev.humedad || []);
 
   const problemasComunes = el('prob_detalle_0')
-    ? H1_PROBLEMAS_COMUNES.map((item, i) => ({ item, detalle: valS(`prob_detalle_${i}`, '') }))
-    : (prev.problemasComunes || H1_PROBLEMAS_COMUNES.map(item => ({ item, detalle: '' })));
+    ? H1_PROBLEMAS_COMUNES.map((item, i) => {
+        const respuesta = valS(`prob_resp_${i}`, '');
+        return { item, respuesta, marcado: respuesta === 'si', detalle: valS(`prob_detalle_${i}`, '') };
+      })
+    : (prev.problemasComunes || H1_PROBLEMAS_COMUNES.map(item => ({ item, respuesta: '', detalle: '' }))).map(h1NormRow_).map(r => ({ item: r.item, respuesta: r.respuesta, marcado: r.respuesta === 'si', detalle: r.detalle || '' }));
 
   return {
     cliente: valS('h1_cliente', prev.cliente), colocador: prev.colocador || '', fechaVisita: valS('h1_fechaVisita', prev.fechaVisita),
@@ -334,4 +397,3 @@ function h1QuitarProducto(i) {
   document.getElementById('hito-content').innerHTML = renderH1(currentObraData);
   setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
 }
-

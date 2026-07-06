@@ -174,12 +174,6 @@ function renderH2(obra) {
     </div>`}
 
     <div class="section">
-      <div class="section-title">08 · Planos y documentación adjunta</div>
-      <div class="small-note" style="margin-bottom:10px;">⚠ Planos, fotos y documentación se deben encontrar en el Drive del cliente.</div>
-      <div class="field full"><label>Carpeta de Drive del cliente</label><input type="text" id="h2_driveLink" placeholder="https://drive.google.com/..." value="${escapeAttr(d.driveLink)}"></div>
-    </div>
-
-    <div class="section">
       <div class="section-title">📤 Entregable al colocador</div>
       <div class="small-note">Genera y envía por mail al colocador asignado un PDF con: qué se va a hacer, con qué materiales (de H3 · Compras) y cuánto se le paga (mano de obra ajustada). Sin precios de cliente ni márgenes. Queda registrado en el hilo y en la carpeta <b>entregables</b> del Drive.</div>
       ${currentUser.rol === 'gerencia'

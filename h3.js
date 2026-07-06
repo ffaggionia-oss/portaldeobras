@@ -9,6 +9,17 @@
 // los edita desde el panel "⚙ Precios y Materiales" sin tocar código.
 // ============================================
 
+// Cliente y m² viven en H1 (una sola carga). Acá solo se leen.
+function h3ClienteDesdeH1_(obra) {
+  const o = obra || currentObraData || {};
+  return (o.h1 && o.h1.cliente) || o.cliente || (o.h3 && o.h3.cliente) || '';
+}
+function h3Mt2DesdeH1_(obra) {
+  const o = obra || currentObraData || {};
+  const h1 = o.h1 || {};
+  return parseFloat(h1.mt2Relevados) || parseFloat(h1.mt2Franco) || 0;
+}
+
 function h3TipoDefaultId() {
   const tipos = MAESTRO.tipos || [];
   return (tipos[1] && tipos[1].id) || (tipos[0] && tipos[0].id) || '';
@@ -146,8 +157,11 @@ function h3CostoCalcular(d) {
 
 function renderH3(obra) {
   const raw = obra.h3 || h3Default();
+  const _mt2H1 = h3Mt2DesdeH1_(obra);
   const d = {
     ...raw,
+    cliente: h3ClienteDesdeH1_(obra),
+    mt2: _mt2H1 > 0 ? _mt2H1 : raw.mt2, // H1 es la fuente de verdad; si no hay, se usa lo guardado
     materiales: mergeMateriales(raw.materiales),
     perifericos: mergePerifericos(raw.perifericos),
     escaladores: mergeEscaladores(raw.escaladores),
@@ -225,10 +239,15 @@ function renderH3(obra) {
     </div>
   ` + `
     <div class="section">
-      <div class="section-title">Datos de obra</div>
+      <div class="section-title">Datos de obra <span class="small-note" style="font-weight:400;">— vienen de H1 · Diagnóstico, acá no se recargan</span></div>
       <div class="field-grid">
-        <div class="field"><label>Cliente</label><input type="text" id="h3_cliente" value="${escapeAttr(d.cliente)}"></div>
-        <div class="field"><label>Mt² a colocar</label><input type="number" id="h3_mt2" value="${escapeAttr(d.mt2)}" onchange="refreshH3()"></div>
+        <div class="field"><label>Cliente</label><div class="small-note" style="padding:10px 0;font-size:14px;">${escapeHtml(h3ClienteDesdeH1_(obra) || '—')}</div></div>
+        <div class="field"><label>Mt² a colocar</label>
+          ${h3Mt2DesdeH1_(obra) > 0
+            ? `<div class="small-note" style="padding:10px 0;font-size:14px;"><strong>${h3Mt2DesdeH1_(obra)}</strong> m² <span class="small-note">(m² relevados de H1 — si cambia, se corrige en H1)</span></div>`
+            : `<input type="number" id="h3_mt2" value="${escapeAttr(d.mt2)}" onchange="refreshH3()">
+               <div class="small-note" style="margin-top:4px;color:var(--warn, #c77700);">⚠ H1 todavía no tiene m² cargados — cargalos en H1 · Diagnóstico para que queden en un solo lugar.</div>`}
+        </div>
       </div>
     </div>
 
@@ -380,9 +399,10 @@ function collectH3() {
     aplica: document.getElementById(`red_aplica_${r.id}`) ? document.getElementById(`red_aplica_${r.id}`).checked : r.aplica
   }));
 
+  const _mt2H1 = h3Mt2DesdeH1_(currentObraData);
   return {
-    cliente: val('h3_cliente') || prev.cliente,
-    mt2: val('h3_mt2') || prev.mt2,
+    cliente: h3ClienteDesdeH1_(currentObraData) || prev.cliente,
+    mt2: _mt2H1 > 0 ? _mt2H1 : (val('h3_mt2') || prev.mt2),
     materiales, perifericos, escaladores, reductores,
     tipoColocacionId: document.getElementById('h3_tipoColocacion') ? document.getElementById('h3_tipoColocacion').value : prev.tipoColocacionId,
     costoCapataz: prev.costoCapataz, // sin input en el hito: sólo informativo
