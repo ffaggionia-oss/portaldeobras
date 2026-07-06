@@ -27,9 +27,11 @@ const API = {
   },
 
   async saveHito(obraId, hito, data, estado, token, comentario) {
+    // confirmado:true = este guardado vino del botón GUARDAR (único camino
+    // en el frontend nuevo). El backend solo notifica guardados confirmados.
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'save', obraId, hito, data, estado, token, comentario })
+      body: JSON.stringify({ action: 'save', obraId, hito, data, estado, token, comentario, confirmado: true })
     });
     return res.json();
   },
