@@ -55,6 +55,7 @@ const H1_PROBLEMAS_COMUNES = [
 function h1Default() {
   return {
     cliente: '', colocador: '', fechaVisita: '', direccion: '',
+    contacto: '', telefono: '', email: '', estudio: '', telefonoArquitecto: '',
     mt2Franco: '', mt2Relevados: '', barrioPrivado: '', casaODepto: '', tipoProducto: '', productos: [],
     tipoInstalacion: { revestimiento: false, deck: false, pisos: false, sauna: false, otro: false, otroEspecificar: '' },
     interiorExterior: '',
@@ -102,11 +103,16 @@ function renderH1(obra) {
   return `
     <div class="section">
       <div class="section-title">1 · Datos generales</div>
+      <div class="small-note" style="margin-bottom:10px;">La ficha del cliente se carga UNA sola vez acá (o llega precargada de la cotización) y se muestra en el Inicio de la obra. Los demás hitos no la repiten.</div>
       <div class="field-grid">
         <div class="field"><label>Cliente</label><input type="text" id="h1_cliente" value="${escapeAttr(d.cliente)}"></div>
-        <div class="field"><label>Colocador</label><input type="text" id="h1_colocador" value="${escapeAttr(d.colocador)}"></div>
         <div class="field"><label>Fecha de visita</label><input type="date" id="h1_fechaVisita" value="${escapeAttr(d.fechaVisita)}"></div>
-        <div class="field"><label>Dirección / Lote</label><input type="text" id="h1_direccion" value="${escapeAttr(d.direccion)}"></div>
+        <div class="field"><label>Dirección / Lote</label><input type="text" id="h1_direccion" value="${escapeAttr(d.direccion || (d._clienteFicha&&d._clienteFicha.direccion) || '')}"></div>
+        <div class="field"><label>Contacto</label><input type="text" id="h1_contacto" value="${escapeAttr(d.contacto || (d._clienteFicha&&d._clienteFicha.contacto) || '')}"></div>
+        <div class="field"><label>Teléfono</label><input type="text" id="h1_telefono" value="${escapeAttr(d.telefono || (d._clienteFicha&&d._clienteFicha.telefono) || '')}"></div>
+        <div class="field"><label>Email</label><input type="text" id="h1_email" value="${escapeAttr(d.email || (d._clienteFicha&&d._clienteFicha.email) || '')}"></div>
+        <div class="field"><label>Estudio / Arquitecto</label><input type="text" id="h1_estudio" value="${escapeAttr(d.estudio)}"></div>
+        <div class="field"><label>Teléfono arquitecto</label><input type="text" id="h1_telefonoArquitecto" value="${escapeAttr(d.telefonoArquitecto)}"></div>
         <div class="field"><label>Mt² (Franco)</label><input type="number" id="h1_mt2Franco" value="${escapeAttr(d.mt2Franco)}"></div>
         <div class="field"><label>Mt² relevados</label><input type="number" id="h1_mt2Relevados" value="${escapeAttr(d.mt2Relevados)}"></div>
         <div class="field"><label>¿Barrio privado?</label>
@@ -264,8 +270,12 @@ function collectH1() {
     : (prev.problemasComunes || H1_PROBLEMAS_COMUNES.map(item => ({ item, detalle: '' })));
 
   return {
-    cliente: valS('h1_cliente', prev.cliente), colocador: valS('h1_colocador', prev.colocador), fechaVisita: valS('h1_fechaVisita', prev.fechaVisita),
-    direccion: valS('h1_direccion', prev.direccion), mt2Franco: valS('h1_mt2Franco', prev.mt2Franco), mt2Relevados: valS('h1_mt2Relevados', prev.mt2Relevados),
+    cliente: valS('h1_cliente', prev.cliente), colocador: prev.colocador || '', fechaVisita: valS('h1_fechaVisita', prev.fechaVisita),
+    direccion: valS('h1_direccion', prev.direccion),
+    contacto: valS('h1_contacto', prev.contacto || ''), telefono: valS('h1_telefono', prev.telefono || ''),
+    email: valS('h1_email', prev.email || ''), estudio: valS('h1_estudio', prev.estudio || ''),
+    telefonoArquitecto: valS('h1_telefonoArquitecto', prev.telefonoArquitecto || ''),
+    mt2Franco: valS('h1_mt2Franco', prev.mt2Franco), mt2Relevados: valS('h1_mt2Relevados', prev.mt2Relevados),
     barrioPrivado: chipS('h1_barrioPrivado', prev.barrioPrivado), casaODepto: chipS('h1_casaODepto', prev.casaODepto),
     tipoProducto: prev.tipoProducto || '',
     productos: (prev.productos || []).slice(),   // se manejan con h1AgregarProducto / h1QuitarProducto

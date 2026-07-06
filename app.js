@@ -10,6 +10,16 @@ let currentHito = 'h1';
 let saveTimer = null;
 let MAESTRO = null; // tipos, materiales, perifericos, escaladores, reductores — Maestro de Precios (H3.js/H4.js lo usan)
 let PRODUCTOS_NOMBRES = []; // nombres del catálogo de madera (selector de productos del H1)
+let COLOCADORES = [];       // registro de colocadores (pestaña Colocadores del Sheet)
+
+async function cargarColocadores() {
+  if (!currentUser || currentUser.rol === 'colocador') { COLOCADORES = []; return; }
+  try {
+    const res = await fetch(`${CONFIG.API_URL}?action=getColocadores&token=${encodeURIComponent(currentUser.token)}`);
+    const r = await res.json();
+    COLOCADORES = (r.ok && r.colocadores) ? r.colocadores : [];
+  } catch (e) { COLOCADORES = []; }
+}
 
 async function cargarProductosNombres() {
   if (!currentUser || currentUser.rol === 'colocador') { PRODUCTOS_NOMBRES = []; return; }
@@ -140,7 +150,7 @@ async function intentarLogin() {
     currentUser = { token, nombre: res.nombre, rol: res.rol };
     localStorage.setItem('kokkai_token', token);
     await cargarMaestro();
-    cargarProductosNombres(); // en segundo plano
+    cargarProductosNombres(); cargarColocadores(); // en segundo plano
     renderTopbarUser();
     renderHome();
   } else {
@@ -173,7 +183,7 @@ async function initApp() {
   if (res.ok) {
     currentUser = { token: savedToken, nombre: res.nombre, rol: res.rol };
     await cargarMaestro();
-    cargarProductosNombres(); // en segundo plano
+    cargarProductosNombres(); cargarColocadores(); // en segundo plano
     renderTopbarUser();
     renderHome();
   } else {
@@ -664,13 +674,14 @@ function renderChatObra(obra) {
   const chips = [];
   if (mt2) chips.push('<span class="estado-pill">' + mt2 + '</span>');
   if (origen) chips.push('<span class="estado-pill">Cotización ' + escapeHtml(origen) + '</span>');
-  const ficha = obra.h1 && obra.h1._clienteFicha;
-  if (ficha) {
-    if (ficha.contacto) chips.push('<span class="estado-pill">👤 ' + escapeHtml(ficha.contacto) + '</span>');
-    if (ficha.telefono) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="tel:' + escapeAttr(String(ficha.telefono).replace(/[^\d+]/g,'')) + '">📞 ' + escapeHtml(ficha.telefono) + '</a>');
-    if (ficha.direccion) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" href="https://www.google.com/maps/search/' + encodeURIComponent(ficha.direccion) + '">📍 ' + escapeHtml(ficha.direccion) + '</a>');
-    if (ficha.email) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="mailto:' + escapeAttr(ficha.email) + '">✉ ' + escapeHtml(ficha.email) + '</a>');
-  }
+  const h1f = obra.h1 || {};
+  const fb = h1f._clienteFicha || {};
+  const F = (k) => h1f[k] || fb[k] || '';
+  if (F('contacto')) chips.push('<span class="estado-pill">👤 ' + escapeHtml(F('contacto')) + '</span>');
+  if (F('telefono')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="tel:' + escapeAttr(String(F('telefono')).replace(/[^\d+]/g,'')) + '">📞 ' + escapeHtml(F('telefono')) + '</a>');
+  if (h1f.estudio) chips.push('<span class="estado-pill">📐 ' + escapeHtml(h1f.estudio) + (h1f.telefonoArquitecto ? ' · <a style="text-decoration:none;color:inherit;" href="tel:' + escapeAttr(String(h1f.telefonoArquitecto).replace(/[^\d+]/g,'')) + '">' + escapeHtml(h1f.telefonoArquitecto) + '</a>' : '') + '</span>');
+  if (F('direccion')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" href="https://www.google.com/maps/search/' + encodeURIComponent(F('direccion')) + '">📍 ' + escapeHtml(F('direccion')) + '</a>');
+  if (F('email')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="mailto:' + escapeAttr(F('email')) + '">✉ ' + escapeHtml(F('email')) + '</a>');
   const accesos = [];
   const rt = ROLE_TABS[currentUser.rol] || [];
   if (rt.indexOf('h3') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h3\')">🛒 Compras</span>');

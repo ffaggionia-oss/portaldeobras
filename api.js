@@ -187,3 +187,11 @@ API.facturaLeer = async function(filename, mimeType, base64Data, token) {
   });
   return res.json();
 };
+
+API.enviarEntregable = async function(obraId, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'enviarEntregable', obraId, token })
+  });
+  return res.json();
+};

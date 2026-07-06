@@ -55,20 +55,15 @@ function renderH2(obra) {
   return `
     <div class="section">
       <div class="section-title">01 · Datos de la obra</div>
+      <div class="small-note" style="margin-bottom:10px;">Los datos del cliente viven en H1 y en el Inicio de la obra — acá solo lo propio del sistema constructivo.</div>
       <div class="field-grid">
-        <div class="field"><label>Cliente</label><input type="text" id="h2_cliente" value="${escapeAttr(d.cliente)}"></div>
-        <div class="field"><label>Estudio / Arquitecto</label><input type="text" id="h2_estudio" value="${escapeAttr(d.estudio)}"></div>
-        <div class="field"><label>Teléfono arquitecto</label><input type="text" id="h2_telefonoArquitecto" value="${escapeAttr(d.telefonoArquitecto)}"></div>
-        <div class="field"><label>Dirección de obra</label><input type="text" id="h2_direccion" value="${escapeAttr(d.direccion)}"></div>
-        <div class="field"><label>Localidad</label><input type="text" id="h2_localidad" value="${escapeAttr(d.localidad)}"></div>
-        <div class="field"><label>¿Barrio privado?</label>
-          <div class="radio-group" id="h2_barrioPrivado" data-value="${escapeAttr(d.barrioPrivado)}">
-            ${['Sí','No'].map(v => `<div class="radio-chip ${d.barrioPrivado===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
-          </div>
+        <div class="field"><label>Colocador asignado</label>
+          <select id="h2_colocador">
+            <option value="">— elegir —</option>
+            ${(typeof COLOCADORES!=='undefined'?COLOCADORES:[]).map(c=>`<option value="${escapeAttr(c.nombre)}" ${d.colocador===c.nombre?'selected':''}>${escapeHtml(c.nombre)}${c.tieneEmail?'':' (sin email)'}</option>`).join('')}
+            ${d.colocador && !(typeof COLOCADORES!=='undefined'?COLOCADORES:[]).some(c=>c.nombre===d.colocador) ? `<option value="${escapeAttr(d.colocador)}" selected>${escapeHtml(d.colocador)}</option>` : ''}
+          </select>
         </div>
-        <div class="field"><label>Mt² a colocar</label><input type="number" id="h2_mt2" value="${escapeAttr(d.mt2)}"></div>
-        <div class="field"><label>Producto a colocar</label><input type="text" id="h2_producto" value="${escapeAttr(d.producto)}"></div>
-        <div class="field"><label>Colocador asignado</label><input type="text" id="h2_colocador" value="${escapeAttr(d.colocador)}"></div>
         <div class="field"><label>Fiscal de obra</label><input type="text" id="h2_fiscal" value="${escapeAttr(d.fiscal)}"></div>
         <div class="field full"><label>Inicio estimado de obra</label><input type="text" id="h2_inicioEstimado" value="${escapeAttr(d.inicioEstimado)}"></div>
       </div>
@@ -185,6 +180,15 @@ function renderH2(obra) {
     </div>
 
     <div class="section">
+      <div class="section-title">📤 Entregable al colocador</div>
+      <div class="small-note">Genera y envía por mail al colocador asignado un PDF con: qué se va a hacer, con qué materiales (de H3 · Compras) y cuánto se le paga (mano de obra ajustada). Sin precios de cliente ni márgenes. Queda registrado en el hilo y en la carpeta <b>entregables</b> del Drive.</div>
+      ${currentUser.rol === 'gerencia'
+        ? `<button type="button" class="btn-primary" style="margin-top:10px;" onclick="enviarEntregable()">📤 Enviar entregable a ${escapeHtml(d.colocador || 'colocador')}</button>
+           <div class="small-note" id="entregable_status" style="margin-top:6px;"></div>`
+        : '<div class="small-note" style="margin-top:8px;">El envío del entregable lo hace Gerencia.</div>'}
+    </div>
+
+    <div class="section">
       <div class="section-title">Estado del hito</div>
       <div class="check-row">
         <input type="checkbox" id="h2_completo" ${d._completo?'checked':''} onchange="scheduleAutosave()">
@@ -253,4 +257,14 @@ function h2ToggleTipo() {
   hitoDirty.h2 = true;
   document.getElementById('hito-content').innerHTML = renderH2(currentObraData);
   setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
+}
+
+
+async function enviarEntregable() {
+  if (hayCambiosSinGuardar() && !confirm('Tenés cambios sin guardar. El entregable se arma con lo GUARDADO. ¿Enviar igual?')) return;
+  const st = document.getElementById('entregable_status');
+  st.textContent = 'Generando y enviando…';
+  const res = await API.enviarEntregable(currentObraData.obraId, currentUser.token);
+  if (res.ok) { st.textContent = '✓ Enviado a ' + res.colocador + ' (' + res.email + ')'; await reloadObra(); }
+  else { st.textContent = 'Error: ' + res.error; }
 }
