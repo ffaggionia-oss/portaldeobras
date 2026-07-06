@@ -40,7 +40,7 @@ const HITO_LABELS = {
   h4: 'H4 · Financiero',
   h5: 'H5 · Remito final',
   fotos: 'Fotos y Planos',
-  chat: '💬 Conversación'
+  chat: '🏠 Inicio'
 };
 const HITO_ORDER = ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos'];
 const ROLE_TABS = {
@@ -73,29 +73,23 @@ document.addEventListener('input', (e) => {
   if (e.target.matches('textarea, input[type=text]')) scheduleAutosave();
 });
 
+let hitoDirty = { h1: false, h2: false };
+
+// YA NO HAY AUTOSAVE en ningún hito: cada cambio queda local y marcado como
+// "sin guardar" hasta que se confirma con el botón Guardar (+ comentario).
+// Ese guardado es lo ÚNICO que dispara el mail de actualización al equipo.
 function scheduleAutosave() {
-  // H4/H5/fotos no usan autosave (H4 guarda al elegir segmento, H5/fotos al subir archivo).
-  // H3 tampoco: la lista de compras se guarda EXPLÍCITAMENTE con el botón
-  // "Guardar cambios" + comentario, y dispara mail con el diff y el PDF.
-  if (currentHito === 'h3' || currentHito === 'h4' || currentHito === 'h5' || currentHito === 'fotos' || currentHito === 'chat') return;
-  clearTimeout(saveTimer);
-  setSaveStatus('Editando...', '');
-  const hitoAlProgramar = currentHito;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    saveCurrentHito(false, hitoAlProgramar);
-  }, 1500);
+  if (!currentObraData) return;
+  if (currentHito === 'h1') { currentObraData.h1 = collectH1(); hitoDirty.h1 = true; }
+  else if (currentHito === 'h2') { currentObraData.h2 = collectH2(); hitoDirty.h2 = true; }
+  else return; // h3 maneja su dirty en refreshH3; h4/h5/fotos/chat guardan con acciones propias
+  setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
 }
 
-async function flushPendingSave() {
-  if (saveTimer) {
-    const hitoPendiente = currentHito;
-    clearTimeout(saveTimer);
-    saveTimer = null;
-    if (currentObraData) {
-      await saveCurrentHito(false, hitoPendiente);
-    }
-  }
+async function flushPendingSave() { /* sin autosave ya no hay guardados pendientes */ }
+
+function hayCambiosSinGuardar() {
+  return hitoDirty.h1 || hitoDirty.h2 || (typeof h3Dirty !== 'undefined' && h3Dirty);
 }
 
 function setSaveStatus(text, cls) {
@@ -179,8 +173,8 @@ async function initApp() {
 // ---- routing ----
 async function goHome() {
   if (!currentUser) return;
-  if (h3Dirty && !confirm('Tenés cambios SIN GUARDAR en H3 · Compras. Si salís se descartan. ¿Salir igual?')) return;
-  h3Dirty = false;
+  if (hayCambiosSinGuardar() && !confirm('Tenés cambios SIN GUARDAR en esta obra. Si salís se descartan. ¿Salir igual?')) return;
+  h3Dirty = false; hitoDirty = { h1: false, h2: false };
   await flushPendingSave();
   currentObraData = null;
   location.hash = '';
@@ -395,6 +389,7 @@ async function openObra(obraId) {
   currentObraData = res.obra;
   h3Snapshot = JSON.stringify(res.obra.h3 || null);
   h3Dirty = false;
+  hitoDirty = { h1: false, h2: false };
   const tabs = ROLE_TABS[currentUser.rol] || ['h1'];
   currentHito = tabs[0];
   renderObraView();
@@ -409,6 +404,7 @@ async function reloadObra() {
     currentObraData = res.obra;
     h3Snapshot = JSON.stringify(res.obra.h3 || null);
     h3Dirty = false;
+    hitoDirty = { h1: false, h2: false };
     renderObraView();
   }
 }
@@ -441,7 +437,7 @@ function renderObraView() {
     </div>
     <div class="save-bar">
       <div class="save-status" id="saveStatus"></div>
-      ${(currentHito!=='h4' && currentHito!=='h5' && currentHito!=='fotos' && currentHito!=='chat' && currentHito!=='h3') ? `<button class="btn-primary" onclick="saveCurrentHito(true)">Guardar ahora</button>` : ''}
+      ${(currentHito==='h1' || currentHito==='h2') ? `<button class="btn-primary" onclick="abrirModalGuardarHito('${currentHito}')">💾 Guardar cambios</button>` : ''}
     </div>
   `;
   renderCurrentHito();
@@ -465,28 +461,7 @@ function renderCurrentHito() {
   if (currentHito === 'chat') { content.innerHTML = renderChatObra(currentObraData); scrollChatAlFinal(); }
 }
 
-async function saveCurrentHito(manual, hitoOverride) {
-  if (!currentObraData) return;
-  const hito = hitoOverride || currentHito;
-  if (hito === 'h3' || hito === 'h4' || hito === 'h5' || hito === 'fotos' || hito === 'chat') return; // h3 se guarda con guardarH3ConComentario(); h4/h5/fotos/chat se guardan solos
-  setSaveStatus('Guardando...', '');
-  let data, estado;
-  if (hito === 'h1') { data = collectH1(); currentObraData.h1 = data; }
-  if (hito === 'h2') { data = collectH2(); currentObraData.h2 = data; estado = 'sistema_definido'; }
-  if (hito === 'h3') { data = collectH3(); currentObraData.h3 = data; estado = 'compras_validadas'; }
-
-  try {
-    const res = await API.saveHito(currentObraData.obraId, hito, data, estado, currentUser.token);
-    if (res.ok) {
-      setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
-      if (estado) currentObraData.estado = estado;
-    } else {
-      setSaveStatus('Error al guardar: ' + res.error, 'error');
-    }
-  } catch (err) {
-    setSaveStatus('Error de conexión', 'error');
-  }
-}
+async function saveCurrentHito() { /* reemplazado por guardarHitoConComentario() */ }
 
 // ---- Marcar / desmarcar obra como terminada (archivo) ----
 async function toggleObraFinalizada(checked) {
@@ -578,21 +553,54 @@ async function eliminarPermanenteObraId(obraId, nombre) {
 initApp();
 
 
-// ---- Guardado explícito de H3 (lista de compras) con comentario ----
-// El backend calcula el diff contra lo guardado, registra el comentario,
-// manda el mail a Nicolás/Sandra (+Franco si guarda otro) y, si cambió la
-// lista de compras, adjunta el PDF con lo agregado marcado.
-async function guardarH3ConComentario(comentario) {
+// ---- Guardado explícito con comentario (todos los hitos editables) ----
+const HITO_NOMBRE_CORTO = { h1: 'H1 · Diagnóstico', h2: 'H2 · Sistema constructivo', h3: 'H3 · Compras' };
+
+function abrirModalGuardarHito(hito) {
+  const prev = document.getElementById('modalGuardarHito');
+  if (prev) prev.remove();
+  const div = document.createElement('div');
+  div.id = 'modalGuardarHito';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px;';
+  div.innerHTML = `
+    <div style="background:var(--panel, #fff);color:inherit;border-radius:12px;max-width:480px;width:100%;padding:22px;border:1px solid var(--line, #ddd);">
+      <h3 style="margin:0 0 6px;">Guardar ${HITO_NOMBRE_CORTO[hito] || hito}</h3>
+      <div class="small-note" style="margin-bottom:12px;">Se aplican los cambios, quedan en el hilo de la obra y se avisa por mail al equipo.</div>
+      <label style="font-size:12px;font-weight:700;">Comentario del cambio (opcional — va en el mail y en el hilo)</label>
+      <textarea id="gHitoComentario" rows="3" style="width:100%;margin:4px 0 14px;padding:8px;border:1px solid var(--line,#ddd);border-radius:8px;font:inherit;background:transparent;color:inherit;" placeholder="Ej: el cliente confirmó la medianera norte"></textarea>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" class="btn-ghost" onclick="document.getElementById('modalGuardarHito').remove()">Cancelar</button>
+        <button type="button" class="btn-primary" id="gHitoBtn" onclick="confirmarGuardarHito('${hito}')">✓ Guardar y notificar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+async function confirmarGuardarHito(hito) {
+  const btn = document.getElementById('gHitoBtn');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const comentario = document.getElementById('gHitoComentario').value.trim();
+  const res = await guardarHitoConComentario(hito, comentario);
+  const modal = document.getElementById('modalGuardarHito');
+  if (modal) modal.remove();
+  if (res.ok) { await reloadObra(); }
+  else { alert('Error al guardar: ' + (res.error || '')); }
+}
+
+async function guardarHitoConComentario(hito, comentario) {
   if (!currentObraData) return { ok: false, error: 'Sin obra' };
-  const data = collectH3();
-  currentObraData.h3 = data;
+  let data, estado;
+  if (hito === 'h1') { data = collectH1(); }
+  if (hito === 'h2') { data = collectH2(); estado = 'sistema_definido'; }
+  if (hito === 'h3') { data = collectH3(); estado = 'compras_validadas'; }
+  currentObraData[hito] = data;
   setSaveStatus('Guardando y notificando...', '');
   try {
-    const res = await API.saveHito(currentObraData.obraId, 'h3', data, 'compras_validadas', currentUser.token, comentario);
+    const res = await API.saveHito(currentObraData.obraId, hito, data, estado, currentUser.token, comentario);
     if (res.ok) {
-      h3Snapshot = JSON.stringify(data);
-      h3Dirty = false;
-      currentObraData.estado = 'compras_validadas';
+      if (hito === 'h3') { h3Snapshot = JSON.stringify(data); h3Dirty = false; }
+      else hitoDirty[hito] = false;
+      if (estado) currentObraData.estado = estado;
       setSaveStatus('✓ Guardado y notificado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
     } else {
       setSaveStatus('Error al guardar: ' + res.error, 'error');
@@ -602,6 +610,14 @@ async function guardarH3ConComentario(comentario) {
     setSaveStatus('Error de conexión', 'error');
     return { ok: false, error: 'conexión' };
   }
+}
+
+// ---- Guardado explícito de H3 (lista de compras) con comentario ----
+// El backend calcula el diff contra lo guardado, registra el comentario,
+// manda el mail a Nicolás/Sandra (+Franco si guarda otro) y, si cambió la
+// lista de compras, adjunta el PDF con lo agregado marcado.
+async function guardarH3ConComentario(comentario) {
+  return guardarHitoConComentario('h3', comentario);
 }
 
 
@@ -622,17 +638,15 @@ function renderChatObra(obra) {
           return `<div style="margin:10px auto;padding:7px 12px;max-width:92%;border-left:3px solid var(--line,#555);opacity:.7;font-size:11.5px;white-space:pre-wrap;">` +
             `<span class="small-note"><b>${escapeHtml(c.usuario||'')}</b> · ${escapeHtml(String(c.fecha||''))}${et[c.hito] ? ' · ' + et[c.hito] : ''}</span><br>${escapeHtml(c.texto||'')}</div>`;
         }
-        // burbuja de chat: las propias a la derecha, las del resto a la izquierda
         return `<div style="display:flex;${esMio ? 'justify-content:flex-end;' : ''}margin:10px 0;">` +
           `<div style="max-width:78%;padding:9px 13px;border:1px solid ${esMio ? 'var(--rust-bright,#B9943E)' : 'var(--line,#555)'};border-radius:${esMio ? '12px 12px 3px 12px' : '12px 12px 12px 3px'};">` +
           `<div class="small-note" style="margin-bottom:3px;"><b style="${esMio ? 'color:var(--rust-bright,#B9943E);' : ''}">${escapeHtml(c.usuario||'')}</b> · ${escapeHtml(String(c.fecha||''))}</div>` +
           `<div style="font-size:13.5px;white-space:pre-wrap;">${escapeHtml(c.texto||'')}</div></div></div>`;
       }).join('');
 
-  // Pantallazo de la obra para aterrizar: datos clave + accesos a los hitos
+  // Datos clave + accesos
   const mt2 = obra.h3 && obra.h3.mt2 ? obra.h3.mt2 + ' m²' : null;
   const origen = obra.h3 && obra.h3._origenCot ? obra.h3._origenCot : null;
-  const nFotos = (obra.fotos || []).length;
   const nFact = (obra.facturas || []).length;
   const totFact = (obra.facturas || []).reduce((s, f) => s + (f.monto || 0), 0);
   const chips = [];
@@ -643,7 +657,20 @@ function renderChatObra(obra) {
   if (rt.indexOf('h3') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h3\')">🛒 Compras</span>');
   if (rt.indexOf('h4') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h4\')">💰 Financiero</span>');
   if (rt.indexOf('h5') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h5\')">🧾 Facturas' + (nFact ? ' (' + nFact + ' · USD ' + totFact.toFixed(0) + ')' : '') + '</span>');
-  accesos.push('<span class="btn-ghost" onclick="switchHito(\'fotos\')">📷 Fotos y planos' + (nFotos ? ' (' + nFotos + ')' : '') + '</span>');
+
+  // Tira de fotos y planos: los últimos, con acceso a la galería completa
+  const fotos = (obra.fotos || []).slice(-8).reverse();
+  const tiraFotos = fotos.length === 0
+    ? '<div class="small-note">Sin fotos ni planos todavía. <span class="btn-ghost" style="padding:0;" onclick="switchHito(\'fotos\')">Subir →</span></div>'
+    : '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(96px,1fr));gap:8px;">' +
+      fotos.map(f => {
+        const esImagen = /\.(jpe?g|png|gif|webp)$/i.test(f.name);
+        return `<a href="${escapeAttr(f.url)}" target="_blank" style="display:block;border:1px solid var(--line,#555);border-radius:6px;overflow:hidden;text-decoration:none;color:inherit;">` +
+          (esImagen
+            ? `<img src="${escapeAttr(f.url)}" style="width:100%;height:72px;object-fit:cover;display:block;">`
+            : `<div style="width:100%;height:72px;display:flex;align-items:center;justify-content:center;font-size:11px;">📄 PDF</div>`) +
+          `<div style="padding:4px 6px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</div></a>`;
+      }).join('') + '</div>';
 
   return `
     <div class="section" style="padding-bottom:8px;">
@@ -652,9 +679,13 @@ function renderChatObra(obra) {
       </div>
     </div>
     <div class="section">
+      <div class="section-title">📷 Fotos y planos ${obra.fotos && obra.fotos.length ? '(' + obra.fotos.length + ')' : ''} <span class="btn-ghost" style="font-weight:400;" onclick="switchHito('fotos')">ver todas / subir →</span></div>
+      ${tiraFotos}
+    </div>
+    <div class="section">
       <div class="section-title">💬 Conversación de la obra</div>
-      <div class="small-note">Toda la comunicación de esta obra vive acá: comentarios del equipo y eventos del sistema (creación, cambios de compras, facturas). Cada comentario avisa por mail al resto — pero se responde acá, no por mail.</div>
-      <div id="chatHilo" style="max-height:60vh;overflow:auto;margin-top:12px;padding-right:4px;">${burbujas}</div>
+      <div class="small-note">Toda la comunicación vive acá: el equipo comenta y el sistema registra lo que pasa (creación, guardados de cada hito, facturas, archivos). Cada comentario y cada guardado avisan por mail — pero se responde acá, no por mail.</div>
+      <div id="chatHilo" style="max-height:52vh;overflow:auto;margin-top:12px;padding-right:4px;">${burbujas}</div>
       <div style="display:flex;gap:10px;margin-top:14px;align-items:flex-end;">
         <textarea id="chat_texto" rows="2" placeholder="Escribí un comentario, pedido o confirmación… (Ctrl+Enter envía)" style="flex:1;padding:10px;border:1px solid var(--line,#555);border-radius:10px;font:inherit;background:transparent;color:inherit;resize:vertical;"></textarea>
         <button type="button" class="btn-primary" id="chat_btn" onclick="enviarComentarioObra()">Comentar</button>
