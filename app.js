@@ -39,14 +39,15 @@ const HITO_LABELS = {
   h3: 'H3 · Costos y compras',
   h4: 'H4 · Financiero',
   h5: 'H5 · Remito final',
-  fotos: 'Fotos y Planos'
+  fotos: 'Fotos y Planos',
+  chat: '💬 Conversación'
 };
-const HITO_ORDER = ['h1', 'h2', 'h3', 'h4', 'h5', 'fotos'];
+const HITO_ORDER = ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos'];
 const ROLE_TABS = {
   colocador:       ['h1', 'fotos'],
-  compras_admin:   ['h1', 'h2', 'h3', 'h5', 'fotos'],
-  project_manager: ['h1', 'h2', 'h3', 'h5', 'fotos'],
-  gerencia:        ['h1', 'h2', 'h3', 'h4', 'h5', 'fotos']
+  compras_admin:   ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos'],
+  project_manager: ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos'],
+  gerencia:        ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos']
 };
 
 // ---- helpers ----
@@ -76,7 +77,7 @@ function scheduleAutosave() {
   // H4/H5/fotos no usan autosave (H4 guarda al elegir segmento, H5/fotos al subir archivo).
   // H3 tampoco: la lista de compras se guarda EXPLÍCITAMENTE con el botón
   // "Guardar cambios" + comentario, y dispara mail con el diff y el PDF.
-  if (currentHito === 'h3' || currentHito === 'h4' || currentHito === 'h5' || currentHito === 'fotos') return;
+  if (currentHito === 'h3' || currentHito === 'h4' || currentHito === 'h5' || currentHito === 'fotos' || currentHito === 'chat') return;
   clearTimeout(saveTimer);
   setSaveStatus('Editando...', '');
   const hitoAlProgramar = currentHito;
@@ -301,6 +302,7 @@ function hitoCompleto(obra, hito) {
   if (hito === 'h4') return !!(obra.h4 && obra.h4.completo);
   if (hito === 'h5') return !!(obra.h5 && obra.h5.length > 0);
   if (hito === 'fotos') return !!(obra.fotos && obra.fotos.length > 0);
+  if (hito === 'chat') return !!(obra.comentarios && obra.comentarios.length > 0);
   return false;
 }
 
@@ -311,7 +313,7 @@ function estadoLabel(e) {
 // Secuencia de hitos "de progreso" (excluye Fotos, que no es un hito secuencial),
 // filtrada según lo que puede ver el rol actual.
 function pasosProgreso() {
-  return HITO_ORDER.filter(h => h !== 'fotos' && (ROLE_TABS[currentUser.rol] || []).indexOf(h) !== -1);
+  return HITO_ORDER.filter(h => h !== 'fotos' && h !== 'chat' && (ROLE_TABS[currentUser.rol] || []).indexOf(h) !== -1);
 }
 
 // Stepper compacto: usado en cada tarjeta de la lista de obras.
@@ -439,7 +441,7 @@ function renderObraView() {
     </div>
     <div class="save-bar">
       <div class="save-status" id="saveStatus"></div>
-      ${(currentHito!=='h4' && currentHito!=='h5' && currentHito!=='fotos') ? `<button class="btn-primary" onclick="saveCurrentHito(true)">Guardar ahora</button>` : ''}
+      ${(currentHito!=='h4' && currentHito!=='h5' && currentHito!=='fotos' && currentHito!=='chat' && currentHito!=='h3') ? `<button class="btn-primary" onclick="saveCurrentHito(true)">Guardar ahora</button>` : ''}
     </div>
   `;
   renderCurrentHito();
@@ -460,12 +462,13 @@ function renderCurrentHito() {
   if (currentHito === 'h4') content.innerHTML = renderH4(currentObraData);
   if (currentHito === 'h5') content.innerHTML = renderH5(currentObraData);
   if (currentHito === 'fotos') content.innerHTML = renderFotos(currentObraData);
+  if (currentHito === 'chat') { content.innerHTML = renderChatObra(currentObraData); scrollChatAlFinal(); }
 }
 
 async function saveCurrentHito(manual, hitoOverride) {
   if (!currentObraData) return;
   const hito = hitoOverride || currentHito;
-  if (hito === 'h3' || hito === 'h4' || hito === 'h5' || hito === 'fotos') return; // h3 se guarda con guardarH3ConComentario(); h4/h5/fotos se guardan solos
+  if (hito === 'h3' || hito === 'h4' || hito === 'h5' || hito === 'fotos' || hito === 'chat') return; // h3 se guarda con guardarH3ConComentario(); h4/h5/fotos/chat se guardan solos
   setSaveStatus('Guardando...', '');
   let data, estado;
   if (hito === 'h1') { data = collectH1(); currentObraData.h1 = data; }
@@ -598,5 +601,94 @@ async function guardarH3ConComentario(comentario) {
   } catch (err) {
     setSaveStatus('Error de conexión', 'error');
     return { ok: false, error: 'conexión' };
+  }
+}
+
+
+// ============================================
+// 💬 CONVERSACIÓN DE LA OBRA — hilo central de comunicación.
+// Acá viven las idas y vueltas, cambios y confirmaciones. Los mails
+// que salen son solo notificaciones de lo que pasa en este hilo.
+// ============================================
+function renderChatObra(obra) {
+  const coms = (obra.comentarios || []).slice().reverse(); // cronológico: viejos arriba
+  const et = { h1:'H1', h2:'H2', h3:'Compras', h4:'Financiero', h5:'Remitos', cot:'Cotización', chat:'', sistema:'Sistema' };
+  const burbujas = coms.length === 0
+    ? '<div class="small-note" style="padding:20px 0;text-align:center;">Todavía no hay mensajes. Arrancá el hilo de esta obra acá abajo. 👇</div>'
+    : coms.map(c => {
+        const esSistema = c.hito !== 'chat';
+        const esMio = currentUser && c.usuario === currentUser.nombre;
+        if (esSistema) {
+          return `<div style="margin:10px auto;padding:7px 12px;max-width:92%;border-left:3px solid var(--line,#555);opacity:.7;font-size:11.5px;white-space:pre-wrap;">` +
+            `<span class="small-note"><b>${escapeHtml(c.usuario||'')}</b> · ${escapeHtml(String(c.fecha||''))}${et[c.hito] ? ' · ' + et[c.hito] : ''}</span><br>${escapeHtml(c.texto||'')}</div>`;
+        }
+        // burbuja de chat: las propias a la derecha, las del resto a la izquierda
+        return `<div style="display:flex;${esMio ? 'justify-content:flex-end;' : ''}margin:10px 0;">` +
+          `<div style="max-width:78%;padding:9px 13px;border:1px solid ${esMio ? 'var(--rust-bright,#B9943E)' : 'var(--line,#555)'};border-radius:${esMio ? '12px 12px 3px 12px' : '12px 12px 12px 3px'};">` +
+          `<div class="small-note" style="margin-bottom:3px;"><b style="${esMio ? 'color:var(--rust-bright,#B9943E);' : ''}">${escapeHtml(c.usuario||'')}</b> · ${escapeHtml(String(c.fecha||''))}</div>` +
+          `<div style="font-size:13.5px;white-space:pre-wrap;">${escapeHtml(c.texto||'')}</div></div></div>`;
+      }).join('');
+
+  // Pantallazo de la obra para aterrizar: datos clave + accesos a los hitos
+  const mt2 = obra.h3 && obra.h3.mt2 ? obra.h3.mt2 + ' m²' : null;
+  const origen = obra.h3 && obra.h3._origenCot ? obra.h3._origenCot : null;
+  const nFotos = (obra.fotos || []).length;
+  const nFact = (obra.facturas || []).length;
+  const totFact = (obra.facturas || []).reduce((s, f) => s + (f.monto || 0), 0);
+  const chips = [];
+  if (mt2) chips.push('<span class="estado-pill">' + mt2 + '</span>');
+  if (origen) chips.push('<span class="estado-pill">Cotización ' + escapeHtml(origen) + '</span>');
+  const accesos = [];
+  const rt = ROLE_TABS[currentUser.rol] || [];
+  if (rt.indexOf('h3') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h3\')">🛒 Compras</span>');
+  if (rt.indexOf('h4') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h4\')">💰 Financiero</span>');
+  if (rt.indexOf('h5') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h5\')">🧾 Facturas' + (nFact ? ' (' + nFact + ' · USD ' + totFact.toFixed(0) + ')' : '') + '</span>');
+  accesos.push('<span class="btn-ghost" onclick="switchHito(\'fotos\')">📷 Fotos y planos' + (nFotos ? ' (' + nFotos + ')' : '') + '</span>');
+
+  return `
+    <div class="section" style="padding-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">${chips.join('')}
+        <span style="flex:1"></span>${accesos.join('')}
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">💬 Conversación de la obra</div>
+      <div class="small-note">Toda la comunicación de esta obra vive acá: comentarios del equipo y eventos del sistema (creación, cambios de compras, facturas). Cada comentario avisa por mail al resto — pero se responde acá, no por mail.</div>
+      <div id="chatHilo" style="max-height:60vh;overflow:auto;margin-top:12px;padding-right:4px;">${burbujas}</div>
+      <div style="display:flex;gap:10px;margin-top:14px;align-items:flex-end;">
+        <textarea id="chat_texto" rows="2" placeholder="Escribí un comentario, pedido o confirmación… (Ctrl+Enter envía)" style="flex:1;padding:10px;border:1px solid var(--line,#555);border-radius:10px;font:inherit;background:transparent;color:inherit;resize:vertical;"></textarea>
+        <button type="button" class="btn-primary" id="chat_btn" onclick="enviarComentarioObra()">Comentar</button>
+      </div>
+      <div class="small-note" id="chat_status" style="margin-top:6px;"></div>
+    </div>`;
+}
+
+function scrollChatAlFinal() {
+  const el = document.getElementById('chatHilo');
+  if (el) el.scrollTop = el.scrollHeight;
+  const ta = document.getElementById('chat_texto');
+  if (ta) ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviarComentarioObra(); }
+  });
+}
+
+async function enviarComentarioObra() {
+  const ta = document.getElementById('chat_texto');
+  const btn = document.getElementById('chat_btn');
+  const status = document.getElementById('chat_status');
+  const texto = ta.value.trim();
+  if (!texto) return;
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    const res = await API.obraComentar(currentObraData.obraId, texto, currentUser.token);
+    if (res.ok) {
+      await reloadObra(); // re-renderiza el hilo con el mensaje nuevo
+    } else {
+      btn.disabled = false; btn.textContent = 'Comentar';
+      status.textContent = 'Error: ' + res.error;
+    }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Comentar';
+    status.textContent = 'Error de conexión';
   }
 }

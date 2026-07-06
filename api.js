@@ -167,3 +167,13 @@ API.facturaBorrar = async function(id, token) {
   });
   return res.json();
 };
+
+
+// ---- Conversación de la obra ----
+API.obraComentar = async function(obraId, texto, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'obraComentar', obraId, texto, token })
+  });
+  return res.json();
+};

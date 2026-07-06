@@ -209,7 +209,11 @@ function renderH3(obra) {
   const totalCompras = compras.reduce((s, m) => s + m.total, 0) + comprasServicios.reduce((s, p) => s + p.total, 0);
 
   const _dirty = (typeof h3Dirty !== 'undefined' && h3Dirty);
-  const _histo = renderHistorialObra(obra);
+  const _histo = `
+    <div class="section">
+      <div class="section-title">💬 Conversación</div>
+      <div class="small-note">Las idas y vueltas de esta obra viven en la pestaña Conversación — los guardados de compras con su comentario aparecen ahí automáticamente. <span class="btn-ghost" style="padding:0;" onclick="switchHito('chat')">Abrir la conversación →</span></div>
+    </div>`;
   return `
     <div class="section" style="border-color:${_dirty ? 'var(--warn, #c77700)' : 'var(--line)'};">
       <div class="section-title">Guardado de cambios</div>
