@@ -177,3 +177,11 @@ API.obraComentar = async function(obraId, texto, token) {
   });
   return res.json();
 };
+
+API.facturaLeer = async function(filename, mimeType, base64Data, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'facturaLeer', filename, mimeType, base64Data, token })
+  });
+  return res.json();
+};
