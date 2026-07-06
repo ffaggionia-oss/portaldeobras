@@ -55,8 +55,8 @@ const H1_PROBLEMAS_COMUNES = [
 function h1Default() {
   return {
     cliente: '', colocador: '', fechaVisita: '', direccion: '',
-    mt2Franco: '', mt2Relevados: '', barrioPrivado: '', casaODepto: '', tipoProducto: '',
-    tipoInstalacion: { revestimiento: false, deck: false, pisos: false },
+    mt2Franco: '', mt2Relevados: '', barrioPrivado: '', casaODepto: '', tipoProducto: '', productos: [],
+    tipoInstalacion: { revestimiento: false, deck: false, pisos: false, sauna: false, otro: false, otroEspecificar: '' },
     interiorExterior: '',
     revestimientoChecklist: H1_CHECKLIST_REVESTIMIENTO.map(item => ({ item, marcado: false, nota: '' })),
     revestimientoNotas: '',
@@ -76,13 +76,15 @@ function h1Default() {
 function renderH1(obra) {
   const d = Object.assign(h1Default(), obra.h1 || {}); // merge: un H1 parcial (precargado desde la cotización) completa con los defaults
 
+  // Escribir en la nota activa el checkbox solo
   const checklistHtml = (arr, keyPrefix) => arr.map((row, i) => `
     <div class="check-row">
       <input type="checkbox" id="${keyPrefix}_chk_${i}" ${row.marcado ? 'checked' : ''}>
       <div class="check-label">
         <div class="check-text">${row.item}</div>
         <div class="check-note">
-          <input type="text" id="${keyPrefix}_nota_${i}" placeholder="Nota / especificación" value="${escapeAttr(row.nota || '')}">
+          <input type="text" id="${keyPrefix}_nota_${i}" placeholder="Nota / especificación" value="${escapeAttr(row.nota || '')}"
+            oninput="if(this.value.trim())document.getElementById('${keyPrefix}_chk_${i}').checked=true">
         </div>
       </div>
     </div>
@@ -117,15 +119,32 @@ function renderH1(obra) {
             ${['Casa','Depto'].map(v => `<div class="radio-chip ${d.casaODepto===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
           </div>
         </div>
-        <div class="field full"><label>Tipo de producto/s</label><input type="text" id="h1_tipoProducto" value="${escapeAttr(d.tipoProducto)}"></div>
+        <div class="field full"><label>Tipo de producto/s <span class="small-note" style="font-weight:400;">(del catálogo — pueden ser varios; si la obra vino de una cotización ya están cargados)</span></label>
+          <div id="h1_productos_chips" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;">
+            ${(d.productos||[]).map((p,i)=>`<span class="estado-pill" style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(p)} <span style="cursor:pointer;font-weight:700;" onclick="h1QuitarProducto(${i})">✕</span></span>`).join('') || '<span class="small-note">Sin productos cargados.</span>'}
+          </div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="h1_producto_input" list="dlProductos" placeholder="Buscar en el catálogo o escribir libre…" style="flex:1;">
+            <button type="button" class="btn-secondary" onclick="h1AgregarProducto()">＋ Agregar</button>
+          </div>
+          <datalist id="dlProductos">${(typeof PRODUCTOS_NOMBRES!=='undefined'?PRODUCTOS_NOMBRES:[]).map(n=>`<option value="${escapeAttr(n)}">`).join('')}</datalist>
+          ${d.tipoProducto ? `<div class="small-note" style="margin-top:4px;">Texto anterior: ${escapeHtml(d.tipoProducto)}</div>` : ''}
+        </div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-title">2 · Tipo de instalación</div>
-      <div class="check-row"><input type="checkbox" id="h1_ti_revestimiento" ${d.tipoInstalacion.revestimiento?'checked':''}><div class="check-text">Revestimiento</div></div>
-      <div class="check-row"><input type="checkbox" id="h1_ti_deck" ${d.tipoInstalacion.deck?'checked':''}><div class="check-text">Deck</div></div>
-      <div class="check-row"><input type="checkbox" id="h1_ti_pisos" ${d.tipoInstalacion.pisos?'checked':''}><div class="check-text">Pisos</div></div>
+      <div class="section-title">2 · Tipo de instalación <span class="small-note" style="font-weight:400;">(activa solo las secciones que apliquen — nada de ruido)</span></div>
+      <div class="check-row"><input type="checkbox" id="h1_ti_revestimiento" ${d.tipoInstalacion.revestimiento?'checked':''} onchange="h1ToggleTipo()"><div class="check-text">Revestimiento</div></div>
+      <div class="check-row"><input type="checkbox" id="h1_ti_deck" ${d.tipoInstalacion.deck?'checked':''} onchange="h1ToggleTipo()"><div class="check-text">Deck</div></div>
+      <div class="check-row"><input type="checkbox" id="h1_ti_pisos" ${d.tipoInstalacion.pisos?'checked':''} onchange="h1ToggleTipo()"><div class="check-text">Pisos</div></div>
+      <div class="check-row"><input type="checkbox" id="h1_ti_sauna" ${d.tipoInstalacion.sauna?'checked':''} onchange="h1ToggleTipo()"><div class="check-text">Sauna</div></div>
+      <div class="check-row">
+        <input type="checkbox" id="h1_ti_otro" ${d.tipoInstalacion.otro?'checked':''} onchange="h1ToggleTipo()">
+        <div class="check-label"><div class="check-text">Otro</div>
+          <div class="check-note"><input type="text" id="h1_ti_otroEspecificar" placeholder="Especificar" value="${escapeAttr(d.tipoInstalacion.otroEspecificar||'')}" oninput="if(this.value.trim())document.getElementById('h1_ti_otro').checked=true"></div>
+        </div>
+      </div>
     </div>
 
     <div class="section">
@@ -135,20 +154,20 @@ function renderH1(obra) {
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">4 · Revestimiento</div>
+    ${!d.tipoInstalacion.revestimiento ? '' : `<div class="section">
+      <div class="section-title">Revestimiento</div>
       ${checklistHtml(d.revestimientoChecklist, 'rev')}
       <div class="field full" style="margin-top:14px;"><label>Notas sobre revestimientos</label><textarea id="h1_revestimientoNotas">${escapeHtml(d.revestimientoNotas)}</textarea></div>
-    </div>
+    </div>`}
 
-    <div class="section">
-      <div class="section-title">5 · Deck</div>
+    ${!d.tipoInstalacion.deck ? '' : `<div class="section">
+      <div class="section-title">Deck</div>
       ${checklistHtml(d.deckChecklist, 'deck')}
       <div class="field full" style="margin-top:14px;"><label>Notas sobre deck</label><textarea id="h1_deckNotas">${escapeHtml(d.deckNotas)}</textarea></div>
-    </div>
+    </div>`}
 
-    <div class="section">
-      <div class="section-title">6 · Pisos</div>
+    ${!d.tipoInstalacion.pisos ? '' : `<div class="section">
+      <div class="section-title">Pisos</div>
       ${checklistHtml(d.pisosChecklist, 'pisos')}
       <div class="small-note" style="margin-top:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Toma de humedad por zona</div>
       <div id="humedad_container">
@@ -165,20 +184,25 @@ function renderH1(obra) {
       <div class="small-note" style="margin-top:18px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Sistema de colocación propuesto</div>
       ${checklistHtml(d.sistemaPropuestoPisos, 'sispisos')}
       <div class="field full" style="margin-top:14px;"><label>Notas sobre pisos</label><textarea id="h1_pisosNotas">${escapeHtml(d.pisosNotas)}</textarea></div>
-    </div>
+    </div>`}
+
+    ${!d.tipoInstalacion.sauna ? '' : `<div class="section">
+      <div class="section-title">Sauna</div>
+      <div class="field full"><label>Relevamiento de sauna (medidas, equipamiento, ventilación, banco, estufa…)</label><textarea id="h1_saunaNotas" style="min-height:90px;">${escapeHtml(d.saunaNotas||'')}</textarea></div>
+    </div>`}
 
     <div class="section">
-      <div class="section-title">7 · Problemas comunes (todas las obras)</div>
+      <div class="section-title">Problemas comunes (todas las obras)</div>
       ${problemasHtml(d.problemasComunes)}
     </div>
 
     <div class="section">
-      <div class="section-title">8 · Notas y observaciones generales</div>
+      <div class="section-title">Notas y observaciones generales</div>
       <textarea id="h1_notasGenerales" style="min-height:100px;">${escapeHtml(d.notasGenerales)}</textarea>
     </div>
 
     <div class="section">
-      <div class="section-title">9 · Cierre</div>
+      <div class="section-title">Cierre</div>
       <div class="field-grid">
         <div class="field"><label>Firma fiscal técnico</label><input type="text" id="h1_firmaFiscal" value="${escapeAttr(d.firmaFiscal)}"></div>
         <div class="field"><label>Fecha entrega diagnóstico</label><input type="date" id="h1_fechaEntrega" value="${escapeAttr(d.fechaEntrega)}"></div>
@@ -211,43 +235,93 @@ function addHumedadRow() {
 }
 
 function collectH1() {
-  const collectChecklist = (arr, keyPrefix) => arr.map((row, i) => ({
-    item: row.item,
-    marcado: document.getElementById(`${keyPrefix}_chk_${i}`).checked,
-    nota: document.getElementById(`${keyPrefix}_nota_${i}`).value
-  }));
+  const prev = (currentObraData && currentObraData.h1) || h1Default();
+  const el = (id) => document.getElementById(id);
+  const valS = (id, fb) => { const e = el(id); return e ? e.value : fb; };
+  const chkS = (id, fb) => { const e = el(id); return e ? e.checked : fb; };
+  const chipS = (id, fb) => { const e = el(id); return e ? (e.getAttribute('data-value') || '') : fb; };
 
-  const humedad = Array.from(document.querySelectorAll('[data-humedad-row]')).map(rowEl => ({
-    zona: rowEl.querySelector('.hum_zona').value,
-    descripcion: rowEl.querySelector('.hum_desc').value,
-    pct: rowEl.querySelector('.hum_pct').value
-  }));
+  // checklists: si la sección está oculta (tipo no tildado) se conserva lo guardado
+  const collectChecklist = (items, keyPrefix, prevArr) => {
+    if (!el(keyPrefix + '_chk_0')) return prevArr || items.map(item => ({ item, marcado: false, nota: '' }));
+    return items.map((item, i) => ({
+      item,
+      marcado: chkS(`${keyPrefix}_chk_${i}`, false),
+      nota: valS(`${keyPrefix}_nota_${i}`, '')
+    }));
+  };
 
-  const problemasComunes = H1_PROBLEMAS_COMUNES.map((item, i) => ({
-    item, detalle: document.getElementById(`prob_detalle_${i}`).value
-  }));
+  const humedad = document.querySelector('[data-humedad-row]')
+    ? Array.from(document.querySelectorAll('[data-humedad-row]')).map(rowEl => ({
+        zona: rowEl.querySelector('.hum_zona').value,
+        descripcion: rowEl.querySelector('.hum_desc').value,
+        pct: rowEl.querySelector('.hum_pct').value
+      }))
+    : (prev.humedad || []);
+
+  const problemasComunes = el('prob_detalle_0')
+    ? H1_PROBLEMAS_COMUNES.map((item, i) => ({ item, detalle: valS(`prob_detalle_${i}`, '') }))
+    : (prev.problemasComunes || H1_PROBLEMAS_COMUNES.map(item => ({ item, detalle: '' })));
 
   return {
-    cliente: val('h1_cliente'), colocador: val('h1_colocador'), fechaVisita: val('h1_fechaVisita'),
-    direccion: val('h1_direccion'), mt2Franco: val('h1_mt2Franco'), mt2Relevados: val('h1_mt2Relevados'),
-    barrioPrivado: chipVal('h1_barrioPrivado'), casaODepto: chipVal('h1_casaODepto'), tipoProducto: val('h1_tipoProducto'),
+    cliente: valS('h1_cliente', prev.cliente), colocador: valS('h1_colocador', prev.colocador), fechaVisita: valS('h1_fechaVisita', prev.fechaVisita),
+    direccion: valS('h1_direccion', prev.direccion), mt2Franco: valS('h1_mt2Franco', prev.mt2Franco), mt2Relevados: valS('h1_mt2Relevados', prev.mt2Relevados),
+    barrioPrivado: chipS('h1_barrioPrivado', prev.barrioPrivado), casaODepto: chipS('h1_casaODepto', prev.casaODepto),
+    tipoProducto: prev.tipoProducto || '',
+    productos: (prev.productos || []).slice(),   // se manejan con h1AgregarProducto / h1QuitarProducto
     tipoInstalacion: {
-      revestimiento: document.getElementById('h1_ti_revestimiento').checked,
-      deck: document.getElementById('h1_ti_deck').checked,
-      pisos: document.getElementById('h1_ti_pisos').checked
+      revestimiento: chkS('h1_ti_revestimiento', prev.tipoInstalacion.revestimiento),
+      deck: chkS('h1_ti_deck', prev.tipoInstalacion.deck),
+      pisos: chkS('h1_ti_pisos', prev.tipoInstalacion.pisos),
+      sauna: chkS('h1_ti_sauna', !!prev.tipoInstalacion.sauna),
+      otro: chkS('h1_ti_otro', !!prev.tipoInstalacion.otro),
+      otroEspecificar: valS('h1_ti_otroEspecificar', prev.tipoInstalacion.otroEspecificar || '')
     },
-    interiorExterior: chipVal('h1_interiorExterior'),
-    revestimientoChecklist: collectChecklist(H1_CHECKLIST_REVESTIMIENTO.map(item=>({item})), 'rev'),
-    revestimientoNotas: val('h1_revestimientoNotas'),
-    deckChecklist: collectChecklist(H1_CHECKLIST_DECK.map(item=>({item})), 'deck'),
-    deckNotas: val('h1_deckNotas'),
-    pisosChecklist: collectChecklist(H1_CHECKLIST_PISOS.map(item=>({item})), 'pisos'),
+    interiorExterior: chipS('h1_interiorExterior', prev.interiorExterior),
+    revestimientoChecklist: collectChecklist(H1_CHECKLIST_REVESTIMIENTO, 'rev', prev.revestimientoChecklist),
+    revestimientoNotas: valS('h1_revestimientoNotas', prev.revestimientoNotas),
+    deckChecklist: collectChecklist(H1_CHECKLIST_DECK, 'deck', prev.deckChecklist),
+    deckNotas: valS('h1_deckNotas', prev.deckNotas),
+    pisosChecklist: collectChecklist(H1_CHECKLIST_PISOS, 'pisos', prev.pisosChecklist),
     humedad,
-    sistemaPropuestoPisos: collectChecklist(H1_SISTEMA_PISOS.map(item=>({item})), 'sispisos'),
-    pisosNotas: val('h1_pisosNotas'),
+    sistemaPropuestoPisos: collectChecklist(H1_SISTEMA_PISOS.map(x=>x), 'sispisos', prev.sistemaPropuestoPisos),
+    pisosNotas: valS('h1_pisosNotas', prev.pisosNotas),
+    saunaNotas: valS('h1_saunaNotas', prev.saunaNotas || ''),
     problemasComunes,
-    notasGenerales: val('h1_notasGenerales'),
-    firmaFiscal: val('h1_firmaFiscal'), fechaEntrega: val('h1_fechaEntrega'),
-    _completo: document.getElementById('h1_completo') ? document.getElementById('h1_completo').checked : false
+    notasGenerales: valS('h1_notasGenerales', prev.notasGenerales),
+    firmaFiscal: valS('h1_firmaFiscal', prev.firmaFiscal), fechaEntrega: valS('h1_fechaEntrega', prev.fechaEntrega),
+    _completo: chkS('h1_completo', prev._completo)
   };
 }
+
+// ---- Tipos de instalación: re-render mostrando solo las secciones activas ----
+function h1ToggleTipo() {
+  currentObraData.h1 = collectH1();
+  hitoDirty.h1 = true;
+  document.getElementById('hito-content').innerHTML = renderH1(currentObraData);
+  setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
+}
+
+// ---- Productos referenciados al catálogo ----
+function h1AgregarProducto() {
+  const inp = document.getElementById('h1_producto_input');
+  const v = (inp.value || '').trim();
+  if (!v) return;
+  const h = collectH1();
+  if (h.productos.indexOf(v) === -1) h.productos.push(v);
+  currentObraData.h1 = h;
+  hitoDirty.h1 = true;
+  document.getElementById('hito-content').innerHTML = renderH1(currentObraData);
+  setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
+  const inp2 = document.getElementById('h1_producto_input');
+  if (inp2) inp2.focus();
+}
+function h1QuitarProducto(i) {
+  const h = collectH1();
+  h.productos.splice(i, 1);
+  currentObraData.h1 = h;
+  hitoDirty.h1 = true;
+  document.getElementById('hito-content').innerHTML = renderH1(currentObraData);
+  setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
+}
+

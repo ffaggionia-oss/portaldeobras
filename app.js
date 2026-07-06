@@ -9,6 +9,16 @@ let h3Dirty = false;     // hay cambios de compras sin guardar
 let currentHito = 'h1';
 let saveTimer = null;
 let MAESTRO = null; // tipos, materiales, perifericos, escaladores, reductores — Maestro de Precios (H3.js/H4.js lo usan)
+let PRODUCTOS_NOMBRES = []; // nombres del catálogo de madera (selector de productos del H1)
+
+async function cargarProductosNombres() {
+  if (!currentUser || currentUser.rol === 'colocador') { PRODUCTOS_NOMBRES = []; return; }
+  try {
+    const res = await fetch(`${CONFIG.API_URL}?action=getProductosNombres&token=${encodeURIComponent(currentUser.token)}`);
+    const r = await res.json();
+    PRODUCTOS_NOMBRES = (r.ok && r.nombres) ? r.nombres : [];
+  } catch (e) { PRODUCTOS_NOMBRES = []; }
+}
 
 // Trae el Maestro de Precios visible para el rol actual. Colocador no ve H3,
 // así que no necesita nada acá. Se llama al loguearse y cada vez que
@@ -130,6 +140,7 @@ async function intentarLogin() {
     currentUser = { token, nombre: res.nombre, rol: res.rol };
     localStorage.setItem('kokkai_token', token);
     await cargarMaestro();
+    cargarProductosNombres(); // en segundo plano
     renderTopbarUser();
     renderHome();
   } else {
@@ -162,6 +173,7 @@ async function initApp() {
   if (res.ok) {
     currentUser = { token: savedToken, nombre: res.nombre, rol: res.rol };
     await cargarMaestro();
+    cargarProductosNombres(); // en segundo plano
     renderTopbarUser();
     renderHome();
   } else {

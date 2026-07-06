@@ -49,7 +49,8 @@ function collectMultiCheck(options, idPrefix) {
 }
 
 function renderH2(obra) {
-  const d = obra.h2 || h2Default();
+  const d = Object.assign(h2Default(), obra.h2 || {});
+  d.tipoObra = Object.assign(h2Default().tipoObra, (obra.h2 && obra.h2.tipoObra) || {});
 
   return `
     <div class="section">
@@ -76,19 +77,19 @@ function renderH2(obra) {
     <div class="section">
       <div class="section-title">02 · Tipo de obra (puede ser más de uno)</div>
       ${['revestimiento','parasoles','deck','piso','sauna'].map(k => `
-        <div class="check-row"><input type="checkbox" id="h2_tipoObra_${k}" ${d.tipoObra[k]?'checked':''}><div class="check-text">${k.charAt(0).toUpperCase()+k.slice(1)}</div></div>
+        <div class="check-row"><input type="checkbox" id="h2_tipoObra_${k}" ${d.tipoObra[k]?'checked':''} onchange="h2ToggleTipo()"><div class="check-text">${k.charAt(0).toUpperCase()+k.slice(1)}</div></div>
       `).join('')}
       <div class="check-row">
         <input type="checkbox" id="h2_tipoObra_otro" ${d.tipoObra.otro?'checked':''}>
         <div class="check-label">
           <div class="check-text">Otro</div>
-          <div class="check-note"><input type="text" id="h2_tipoObra_otroEspecificar" placeholder="Especificar" value="${escapeAttr(d.tipoObra.otroEspecificar)}"></div>
+          <div class="check-note"><input type="text" id="h2_tipoObra_otroEspecificar" placeholder="Especificar" value="${escapeAttr(d.tipoObra.otroEspecificar)}" oninput="if(this.value.trim())document.getElementById('h2_tipoObra_otro').checked=true"></div>
         </div>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">03 · Revestimiento (completar sólo si aplica)</div>
+    ${!d.tipoObra.revestimiento ? '' : `<div class="section">
+      <div class="section-title">03 · Revestimiento</div>
       <label>Tipo de revestimiento</label>
       <div class="radio-group" id="h2_rev_tipo" data-value="${escapeAttr(d.rev_tipo)}" style="margin-bottom:14px;">
         ${['Interior','Exterior — fachada','Cielorraso / revestimiento de techo'].map(v => `<div class="radio-chip ${d.rev_tipo===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
@@ -122,10 +123,10 @@ function renderH2(obra) {
       <div class="field full" style="margin-top:8px;"><label>Altura de revestimiento a piso</label><input type="text" id="h2_rev_remateAltura" value="${escapeAttr(d.rev_remateAltura)}"></div>
 
       <div class="field full" style="margin-top:14px;"><label>Notas sobre revestimiento</label><textarea id="h2_rev_notas" style="min-height:90px;">${escapeHtml(d.rev_notas)}</textarea></div>
-    </div>
+    </div>`}
 
-    <div class="section">
-      <div class="section-title">04 · Parasoles (completar sólo si aplica)</div>
+    ${!d.tipoObra.parasoles ? '' : `<div class="section">
+      <div class="section-title">04 · Parasoles</div>
       <div class="field-grid">
         <div class="field"><label>Perfil a utilizar</label><input type="text" id="h2_par_perfil" value="${escapeAttr(d.par_perfil)}"></div>
         <div class="field"><label>Link producto</label><input type="text" id="h2_par_link" value="${escapeAttr(d.par_link)}"></div>
@@ -137,10 +138,10 @@ function renderH2(obra) {
       </div>
       <div class="field full" style="margin-top:8px;"><label>Especificar</label><input type="text" id="h2_par_anclajeEspecificar" value="${escapeAttr(d.par_anclajeEspecificar)}"></div>
       <div class="field full" style="margin-top:14px;"><label>Notas sobre parasoles</label><textarea id="h2_par_notas">${escapeHtml(d.par_notas)}</textarea></div>
-    </div>
+    </div>`}
 
-    <div class="section">
-      <div class="section-title">05 · Deck (completar sólo si aplica)</div>
+    ${!d.tipoObra.deck ? '' : `<div class="section">
+      <div class="section-title">05 · Deck</div>
       <div class="small-note" style="margin-bottom:8px; font-weight:600; text-transform:uppercase;">¿Cómo va apoyado?</div>
       <div class="radio-group" id="h2_deck_apoyo" data-value="${escapeAttr(d.deck_apoyo)}">
         ${['Estructura sobre carpeta directo','Necesita Nivelación de Carpeta','Sobre patas hasta 15 cm','Sobre patas más de 15 cm','Con desniveles / escalones','Necesita movimiento de tierra previo','Necesita remoción de deck anterior','Superficie requiere albañilería previa'].map(v => `<div class="radio-chip ${d.deck_apoyo===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
@@ -157,10 +158,10 @@ function renderH2(obra) {
       <div class="radio-group" id="h2_deck_fijacionTabla" data-value="${escapeAttr(d.deck_fijacionTabla)}">
         ${['Clip Thermory','Otro Clip','Tornillería'].map(v => `<div class="radio-chip ${d.deck_fijacionTabla===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
       </div>
-    </div>
+    </div>`}
 
-    <div class="section">
-      <div class="section-title">06 · Piso (completar sólo si aplica)</div>
+    ${!d.tipoObra.piso ? '' : `<div class="section">
+      <div class="section-title">06 · Piso</div>
       <div class="small-note" style="margin-bottom:8px; font-weight:600; text-transform:uppercase;">Estado del soporte</div>
       <div class="radio-group" id="h2_piso_estadoSoporte" data-value="${escapeAttr(d.piso_estadoSoporte)}">
         ${['Hay piso existente — requiere remoción','Carpeta sana y nivelada','Carpeta requiere nivelación o reparación','Aplicación sobre piso anterior sin remoción'].map(v => `<div class="radio-chip ${d.piso_estadoSoporte===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
@@ -175,7 +176,7 @@ function renderH2(obra) {
       ${multiCheckGroup(H2_PISO_PROBLEMAS_OPTS, d.piso_problemasPrevios, 'h2_piso_prob')}
 
       <div class="field full" style="margin-top:14px;"><label>Notas sobre pisos</label><textarea id="h2_piso_notas">${escapeHtml(d.piso_notas)}</textarea></div>
-    </div>
+    </div>`}
 
     <div class="section">
       <div class="section-title">08 · Planos y documentación adjunta</div>
@@ -194,18 +195,23 @@ function renderH2(obra) {
 }
 
 function collectH2() {
+  const prev = (currentObraData && currentObraData.h2) || h2Default();
+  const prevTipo = Object.assign(h2Default().tipoObra, prev.tipoObra || {});
+  const el = (id) => document.getElementById(id);
+  const val = (id) => { const e = el(id); return e ? e.value : (h2PrevVal_(prev, id)); };
+  const chipVal = (id) => { const e = el(id); return e ? (e.getAttribute('data-value') || '') : (h2PrevVal_(prev, id)); };
   return {
     cliente: val('h2_cliente'), estudio: val('h2_estudio'), telefonoArquitecto: val('h2_telefonoArquitecto'),
     direccion: val('h2_direccion'), localidad: val('h2_localidad'), barrioPrivado: chipVal('h2_barrioPrivado'),
     mt2: val('h2_mt2'), producto: val('h2_producto'), colocador: val('h2_colocador'), fiscal: val('h2_fiscal'),
     inicioEstimado: val('h2_inicioEstimado'),
     tipoObra: {
-      revestimiento: document.getElementById('h2_tipoObra_revestimiento').checked,
-      parasoles: document.getElementById('h2_tipoObra_parasoles').checked,
-      deck: document.getElementById('h2_tipoObra_deck').checked,
-      piso: document.getElementById('h2_tipoObra_piso').checked,
-      sauna: document.getElementById('h2_tipoObra_sauna').checked,
-      otro: document.getElementById('h2_tipoObra_otro').checked,
+      revestimiento: (el('h2_tipoObra_revestimiento') ? el('h2_tipoObra_revestimiento').checked : !!prevTipo.revestimiento),
+      parasoles: (el('h2_tipoObra_parasoles') ? el('h2_tipoObra_parasoles').checked : !!prevTipo.parasoles),
+      deck: (el('h2_tipoObra_deck') ? el('h2_tipoObra_deck').checked : !!prevTipo.deck),
+      piso: (el('h2_tipoObra_piso') ? el('h2_tipoObra_piso').checked : !!prevTipo.piso),
+      sauna: (el('h2_tipoObra_sauna') ? el('h2_tipoObra_sauna').checked : !!prevTipo.sauna),
+      otro: (el('h2_tipoObra_otro') ? el('h2_tipoObra_otro').checked : !!prevTipo.otro),
       otroEspecificar: val('h2_tipoObra_otroEspecificar')
     },
     rev_tipo: chipVal('h2_rev_tipo'), rev_tipoCantidad: val('h2_rev_tipoCantidad'),
@@ -225,6 +231,26 @@ function collectH2() {
     piso_problemasPrevios: collectMultiCheck(H2_PISO_PROBLEMAS_OPTS, 'h2_piso_prob'),
     piso_notas: val('h2_piso_notas'),
     driveLink: val('h2_driveLink'),
-    _completo: document.getElementById('h2_completo') ? document.getElementById('h2_completo').checked : false
+    _completo: document.getElementById('h2_completo') ? (el('h2_completo') ? el('h2_completo').checked : h2PrevChk_(prev, 'h2_completo')) : false
   };
+}
+
+
+// Fallbacks para campos de secciones ocultas: se conserva lo guardado.
+// Mapea el id del input a la clave del objeto h2 (convención h2_<clave>).
+function h2PrevVal_(prev, id) {
+  const k = String(id).replace(/^h2_/, '');
+  if (k.indexOf('tipoObra_') === 0) return (prev.tipoObra || {})[k.replace('tipoObra_','')] || '';
+  return prev[k] !== undefined ? prev[k] : '';
+}
+function h2PrevChk_(prev, id) {
+  const k = String(id).replace(/^h2_/, '');
+  return !!(prev[k]);
+}
+
+function h2ToggleTipo() {
+  currentObraData.h2 = collectH2();
+  hitoDirty.h2 = true;
+  document.getElementById('hito-content').innerHTML = renderH2(currentObraData);
+  setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
 }
