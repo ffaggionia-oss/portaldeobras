@@ -208,7 +208,18 @@ function renderH3(obra) {
   }));
   const totalCompras = compras.reduce((s, m) => s + m.total, 0) + comprasServicios.reduce((s, p) => s + p.total, 0);
 
+  const _dirty = (typeof h3Dirty !== 'undefined' && h3Dirty);
+  const _histo = renderHistorialObra(obra);
   return `
+    <div class="section" style="border-color:${_dirty ? 'var(--warn, #c77700)' : 'var(--line)'};">
+      <div class="section-title">Guardado de cambios</div>
+      <div class="small-note">Los cambios de esta pantalla <b>no se aplican hasta que guardes</b>. Al guardar se te pide un comentario y se avisa por mail a Nicolás y Sandra con el detalle del cambio${'' /* + PDF si cambió la lista */} — si cambió la lista de compras, va adjunta en PDF con lo agregado marcado.</div>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:10px;">
+        <button type="button" class="btn" onclick="abrirModalGuardarH3()">💾 Guardar cambios de compras</button>
+        <span class="small-note" style="color:${_dirty ? 'var(--warn, #c77700)' : 'var(--ok, #1a7f37)'};font-weight:700;">${_dirty ? '● Hay cambios sin guardar' : '✓ Sin cambios pendientes'}</span>
+      </div>
+    </div>
+  ` + `
     <div class="section">
       <div class="section-title">Datos de obra</div>
       <div class="field-grid">
@@ -317,16 +328,18 @@ function renderH3(obra) {
     <div class="section">
       <div class="section-title">Estado del hito</div>
       <div class="check-row">
-        <input type="checkbox" id="h3_completo" ${d._completo ? 'checked' : ''} onchange="scheduleAutosave()">
+        <input type="checkbox" id="h3_completo" ${d._completo ? 'checked' : ''} onchange="refreshH3()">
         <div class="check-text">Marcar H3 · Costos y compras como completo</div>
       </div>
     </div>
-  `;
+  ` + _histo;
 }
 
 function refreshH3() {
   currentObraData.h3 = collectH3();
+  h3Dirty = true;
   document.getElementById('hito-content').innerHTML = renderH3(currentObraData);
+  setSaveStatus('● Cambios sin guardar', 'error');
 }
 
 function collectH3() {
@@ -375,4 +388,91 @@ function collectH3() {
     fiscalMinimo: prev.fiscalMinimo, fiscalPct: prev.fiscalPct,
     _completo: document.getElementById('h3_completo') ? document.getElementById('h3_completo').checked : false
   };
+}
+
+
+// ---- Historial de cambios y comentarios de la obra ----
+function renderHistorialObra(obra) {
+  const coms = obra.comentarios || [];
+  const et = { h1:'H1', h2:'H2', h3:'Compras', h4:'Financiero', h5:'Remitos', cot:'Cotización', fotos:'Fotos' };
+  return `
+    <div class="section">
+      <div class="section-title">📝 Historial de cambios y comentarios</div>
+      ${coms.length === 0 ? '<div class="small-note">Sin movimientos registrados todavía. Cada guardado de compras con su comentario queda acá.</div>' :
+        coms.map(c => `
+        <div style="border-bottom:1px solid var(--line, #e5e5e5);padding:8px 0;">
+          <div class="small-note"><b>${escapeHtml(c.usuario||'')}</b> · ${escapeHtml(String(c.fecha||''))} · ${et[c.hito]||escapeHtml(c.hito||'')}</div>
+          <div style="font-size:12.5px;white-space:pre-wrap;margin-top:2px;">${escapeHtml(c.texto||'')}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ---- Diff local (vista previa en el modal, espejo del diff del servidor) ----
+function diffH3Preview() {
+  let viejo = null;
+  try { viejo = h3Snapshot ? JSON.parse(h3Snapshot) : null; } catch(e) {}
+  const nuevo = collectH3();
+  const o = viejo || {};
+  const t = [];
+  const mt2o = parseFloat(o.mt2)||0, mt2n = parseFloat(nuevo.mt2)||0;
+  if (mt2o !== mt2n) t.push('m²: ' + mt2o + ' → ' + mt2n);
+  if ((o.tipoColocacionId||'') !== (nuevo.tipoColocacionId||'')) t.push('cambió el tipo de colocación');
+  const om = {}; (o.materiales||[]).forEach(m=>{ om[m.id]=!!m.incluye; });
+  (nuevo.materiales||[]).forEach(m=>{
+    if (!om[m.id] && m.incluye) t.push('＋ ' + m.insumo);
+    if (om[m.id] && !m.incluye) t.push('－ ' + m.insumo);
+  });
+  const op = {}; (o.perifericos||[]).forEach(p=>{ op[p.id]=parseFloat(p.cantidad)||0; });
+  (nuevo.perifericos||[]).forEach(p=>{
+    const a = op[p.id]||0, n = parseFloat(p.cantidad)||0;
+    if (a===n) return;
+    if (a===0 && n>0) t.push('＋ ' + p.insumo + ' × ' + n);
+    else if (n===0) t.push('－ ' + p.insumo);
+    else t.push(p.insumo + ': ' + a + ' → ' + n);
+  });
+  const togg = (oa, na, label) => {
+    const m = {}; (oa||[]).forEach(x=>{ m[x.id]=!!x.aplica; });
+    (na||[]).forEach(x=>{ if (!!m[x.id] !== !!x.aplica) t.push((x.aplica?'aplica ':'quita ') + label + ' "' + x.condicion + '"'); });
+  };
+  togg(o.escaladores, nuevo.escaladores, 'ampliación');
+  togg(o.reductores, nuevo.reductores, 'reducción');
+  if (!!o.fiscalIncluido !== !!nuevo.fiscalIncluido) t.push(nuevo.fiscalIncluido ? 'incluye fiscal de obra' : 'quita fiscal de obra');
+  if (!!o._completo !== !!nuevo._completo) t.push(nuevo._completo ? 'marca H3 completo' : 'desmarca H3 completo');
+  return t;
+}
+
+// ---- Modal: comentario del cambio + vista previa del diff ----
+function abrirModalGuardarH3() {
+  const cambios = diffH3Preview();
+  const prev = document.getElementById('modalGuardarH3');
+  if (prev) prev.remove();
+  const div = document.createElement('div');
+  div.id = 'modalGuardarH3';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px;';
+  div.innerHTML = `
+    <div style="background:var(--panel, #fff);color:inherit;border-radius:12px;max-width:520px;width:100%;max-height:90vh;overflow:auto;padding:22px;border:1px solid var(--line, #ddd);">
+      <h3 style="margin:0 0 10px;">Guardar cambios de compras</h3>
+      <div class="small-note" style="margin-bottom:6px;">Cambios detectados que se van a aplicar:</div>
+      <div style="font-size:12.5px;background:rgba(185,148,62,.08);border:1px solid var(--line,#ddd);border-radius:8px;padding:10px;margin-bottom:12px;max-height:180px;overflow:auto;">
+        ${cambios.length ? cambios.map(c=>'• '+escapeHtml(c)).join('<br>') : '(sin cambios detectados — se registra solo el comentario)'}
+      </div>
+      <label style="font-size:12px;font-weight:700;">Comentario del cambio (va en el mail y queda en el historial)</label>
+      <textarea id="gh3Comentario" rows="3" style="width:100%;margin:4px 0 14px;padding:8px;border:1px solid var(--line,#ddd);border-radius:8px;font:inherit;background:transparent;color:inherit;" placeholder="Ej: el cliente sumó la pérgola, agrego alfajías y 10 salchichas más"></textarea>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" class="btn-ghost" onclick="document.getElementById('modalGuardarH3').remove()">Cancelar</button>
+        <button type="button" class="btn" id="gh3Btn" onclick="confirmarGuardarH3()">✓ Guardar y notificar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+async function confirmarGuardarH3() {
+  const btn = document.getElementById('gh3Btn');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const comentario = document.getElementById('gh3Comentario').value.trim();
+  const res = await guardarH3ConComentario(comentario);
+  const modal = document.getElementById('modalGuardarH3');
+  if (modal) modal.remove();
+  if (res.ok) { await reloadObra(); }
+  else { alert('Error al guardar: ' + (res.error||'')); }
 }

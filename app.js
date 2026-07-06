@@ -4,6 +4,8 @@
 
 let currentUser = null; // { token, nombre, rol }
 let currentObraData = null;
+let h3Snapshot = null;   // H3 tal como está guardado en el servidor
+let h3Dirty = false;     // hay cambios de compras sin guardar
 let currentHito = 'h1';
 let saveTimer = null;
 let MAESTRO = null; // tipos, materiales, perifericos, escaladores, reductores — Maestro de Precios (H3.js/H4.js lo usan)
@@ -71,8 +73,10 @@ document.addEventListener('input', (e) => {
 });
 
 function scheduleAutosave() {
-  // H4/H5/fotos no usan autosave de texto (H4 guarda al elegir segmento, H5/fotos al subir archivo)
-  if (currentHito === 'h4' || currentHito === 'h5' || currentHito === 'fotos') return;
+  // H4/H5/fotos no usan autosave (H4 guarda al elegir segmento, H5/fotos al subir archivo).
+  // H3 tampoco: la lista de compras se guarda EXPLÍCITAMENTE con el botón
+  // "Guardar cambios" + comentario, y dispara mail con el diff y el PDF.
+  if (currentHito === 'h3' || currentHito === 'h4' || currentHito === 'h5' || currentHito === 'fotos') return;
   clearTimeout(saveTimer);
   setSaveStatus('Editando...', '');
   const hitoAlProgramar = currentHito;
@@ -174,6 +178,8 @@ async function initApp() {
 // ---- routing ----
 async function goHome() {
   if (!currentUser) return;
+  if (h3Dirty && !confirm('Tenés cambios SIN GUARDAR en H3 · Compras. Si salís se descartan. ¿Salir igual?')) return;
+  h3Dirty = false;
   await flushPendingSave();
   currentObraData = null;
   location.hash = '';
@@ -385,6 +391,8 @@ async function openObra(obraId) {
   const res = await API.getObra(obraId, currentUser.token);
   if (!res.ok) { app.innerHTML = `<div class="empty-state">Error: ${escapeHtml(res.error)}</div>`; return; }
   currentObraData = res.obra;
+  h3Snapshot = JSON.stringify(res.obra.h3 || null);
+  h3Dirty = false;
   const tabs = ROLE_TABS[currentUser.rol] || ['h1'];
   currentHito = tabs[0];
   renderObraView();
@@ -397,6 +405,8 @@ async function reloadObra() {
   const res = await API.getObra(currentObraData.obraId, currentUser.token);
   if (res.ok) {
     currentObraData = res.obra;
+    h3Snapshot = JSON.stringify(res.obra.h3 || null);
+    h3Dirty = false;
     renderObraView();
   }
 }
@@ -455,7 +465,7 @@ function renderCurrentHito() {
 async function saveCurrentHito(manual, hitoOverride) {
   if (!currentObraData) return;
   const hito = hitoOverride || currentHito;
-  if (hito === 'h4' || hito === 'h5' || hito === 'fotos') return; // se guardan solos
+  if (hito === 'h3' || hito === 'h4' || hito === 'h5' || hito === 'fotos') return; // h3 se guarda con guardarH3ConComentario(); h4/h5/fotos se guardan solos
   setSaveStatus('Guardando...', '');
   let data, estado;
   if (hito === 'h1') { data = collectH1(); currentObraData.h1 = data; }
@@ -563,3 +573,30 @@ async function eliminarPermanenteObraId(obraId, nombre) {
 
 // ---- init ----
 initApp();
+
+
+// ---- Guardado explícito de H3 (lista de compras) con comentario ----
+// El backend calcula el diff contra lo guardado, registra el comentario,
+// manda el mail a Nicolás/Sandra (+Franco si guarda otro) y, si cambió la
+// lista de compras, adjunta el PDF con lo agregado marcado.
+async function guardarH3ConComentario(comentario) {
+  if (!currentObraData) return { ok: false, error: 'Sin obra' };
+  const data = collectH3();
+  currentObraData.h3 = data;
+  setSaveStatus('Guardando y notificando...', '');
+  try {
+    const res = await API.saveHito(currentObraData.obraId, 'h3', data, 'compras_validadas', currentUser.token, comentario);
+    if (res.ok) {
+      h3Snapshot = JSON.stringify(data);
+      h3Dirty = false;
+      currentObraData.estado = 'compras_validadas';
+      setSaveStatus('✓ Guardado y notificado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
+    } else {
+      setSaveStatus('Error al guardar: ' + res.error, 'error');
+    }
+    return res;
+  } catch (err) {
+    setSaveStatus('Error de conexión', 'error');
+    return { ok: false, error: 'conexión' };
+  }
+}

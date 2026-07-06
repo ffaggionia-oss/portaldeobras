@@ -26,10 +26,10 @@ const API = {
     return res.json();
   },
 
-  async saveHito(obraId, hito, data, estado, token) {
+  async saveHito(obraId, hito, data, estado, token, comentario) {
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'save', obraId, hito, data, estado, token })
+      body: JSON.stringify({ action: 'save', obraId, hito, data, estado, token, comentario })
     });
     return res.json();
   },
