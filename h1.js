@@ -74,7 +74,7 @@ function h1Default() {
 }
 
 function renderH1(obra) {
-  const d = obra.h1 || h1Default();
+  const d = Object.assign(h1Default(), obra.h1 || {}); // merge: un H1 parcial (precargado desde la cotización) completa con los defaults
 
   const checklistHtml = (arr, keyPrefix) => arr.map((row, i) => `
     <div class="check-row">

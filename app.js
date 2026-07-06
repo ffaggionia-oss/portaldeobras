@@ -652,6 +652,13 @@ function renderChatObra(obra) {
   const chips = [];
   if (mt2) chips.push('<span class="estado-pill">' + mt2 + '</span>');
   if (origen) chips.push('<span class="estado-pill">Cotización ' + escapeHtml(origen) + '</span>');
+  const ficha = obra.h1 && obra.h1._clienteFicha;
+  if (ficha) {
+    if (ficha.contacto) chips.push('<span class="estado-pill">👤 ' + escapeHtml(ficha.contacto) + '</span>');
+    if (ficha.telefono) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="tel:' + escapeAttr(String(ficha.telefono).replace(/[^\d+]/g,'')) + '">📞 ' + escapeHtml(ficha.telefono) + '</a>');
+    if (ficha.direccion) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" href="https://www.google.com/maps/search/' + encodeURIComponent(ficha.direccion) + '">📍 ' + escapeHtml(ficha.direccion) + '</a>');
+    if (ficha.email) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="mailto:' + escapeAttr(ficha.email) + '">✉ ' + escapeHtml(ficha.email) + '</a>');
+  }
   const accesos = [];
   const rt = ROLE_TABS[currentUser.rol] || [];
   if (rt.indexOf('h3') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h3\')">🛒 Compras</span>');
