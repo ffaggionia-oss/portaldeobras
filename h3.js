@@ -9,6 +9,9 @@
 // los edita desde el panel "⚙ Precios y Materiales" sin tocar código.
 // ============================================
 
+// Qué categorías de materiales están abiertas (persiste entre refresh)
+const h3CatsAbiertas = {};
+
 // Cliente y m² viven en H1 (una sola carga). Acá solo se leen.
 function h3ClienteDesdeH1_(obra) {
   const o = obra || currentObraData || {};
@@ -176,17 +179,39 @@ function renderH3(obra) {
   // conserva automáticamente el valor guardado — no hay forma de pisarlo desde la UI).
   const esGerencia = currentUser.rol === 'gerencia';
 
-  const materialesRows = d.materiales.map(m => `
+  // Materiales agrupados por categoría en pestañas plegables: se abre solo
+  // lo que se está usando; el resto no hace ruido.
+  const matFila = m => `
     <tr ${m._inactivo ? 'style="opacity:0.55;"' : ''}>
-      <td>${escapeHtml(m.categoria || '')}</td>
-      <td>${escapeHtml(m.insumo)}${m._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(m.proveedor || '')}</div></td>
+      <td>${escapeHtml(m.insumo)}${m._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(m.proveedor || '')}${m.calculo ? ' · ' + escapeHtml(m.calculo) : ''}</div></td>
       <td class="num">${m.unMt2}</td>
       <td>${escapeHtml(m.unidad || '')}</td>
       <td class="num">$${(parseFloat(m.costoUn) || 0).toFixed(2)}</td>
       <td class="num">$${((parseFloat(m.unMt2) || 0) * (parseFloat(m.costoUn) || 0)).toFixed(2)}</td>
       <td style="text-align:center;"><input type="checkbox" id="mat_inc_${m.id}" ${m.incluye ? 'checked' : ''} onchange="refreshH3()"></td>
-    </tr>
-  `).join('');
+    </tr>`;
+  const matCats = [];
+  const matPorCat = {};
+  d.materiales.forEach(m => {
+    const c = m.categoria || 'Otros';
+    if (!matPorCat[c]) { matPorCat[c] = []; matCats.push(c); }
+    matPorCat[c].push(m);
+  });
+  const materialesHtml = matCats.map(cat => {
+    const arr = matPorCat[cat];
+    const sel = arr.filter(m => m.incluye).length;
+    const abierta = (typeof h3CatsAbiertas[cat] === 'boolean') ? h3CatsAbiertas[cat] : sel > 0;
+    return `
+    <details ${abierta ? 'open' : ''} ontoggle="h3CatsAbiertas['${escapeAttr(cat)}']=this.open" style="border:1px solid var(--line,#555); border-radius:8px; margin-bottom:10px; padding:0 10px;">
+      <summary style="cursor:pointer; padding:12px 4px; font-weight:700; font-size:14px; list-style-position:inside;">
+        ${escapeHtml(cat)} ${sel > 0 ? `<span class="estado-pill" style="margin-left:8px;">${sel} incluido${sel === 1 ? '' : 's'}</span>` : `<span class="small-note" style="font-weight:400; margin-left:8px;">${arr.length} disponibles</span>`}
+      </summary>
+      <table class="calc-table" style="margin-bottom:10px;">
+        <thead><tr><th>Insumo</th><th>Un/Mt²</th><th>Unidad</th><th>Costo x Un</th><th>Costo x Mt²</th><th>Incl.</th></tr></thead>
+        <tbody>${arr.map(matFila).join('')}</tbody>
+      </table>
+    </details>`;
+  }).join('');
 
   const perifericosRows = d.perifericos.map(p => `
     <tr ${p._inactivo ? 'style="opacity:0.55;"' : ''}>
@@ -252,11 +277,8 @@ function renderH3(obra) {
     </div>
 
     <div class="section">
-      <div class="section-title">Materiales</div>
-      <table class="calc-table">
-        <thead><tr><th>Categ.</th><th>Insumo</th><th>Un/Mt²</th><th>Unidad</th><th>Costo x Un</th><th>Costo x Mt²</th><th>Incl.</th></tr></thead>
-        <tbody>${materialesRows}</tbody>
-      </table>
+      <div class="section-title">Materiales <span class="small-note" style="font-weight:400;">— abrí la categoría que necesites y tildá</span></div>
+      ${materialesHtml}
       <div class="small-note" style="margin-top:10px;">Total materiales x Mt²: <strong>$${calc.costoMateriales.toFixed(2)}</strong></div>
       ${esGerencia ? `<div class="small-note" style="margin-top:6px;">Los precios y consumos no se editan acá: se cambian desde <span class="btn-ghost" style="padding:0;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span> y toda obra activa los toma automáticamente.</div>` : `<div class="small-note" style="margin-top:6px;">Los precios y parámetros los define Gerencia. Si algo está desactualizado, avisale a Gerencia.</div>`}
     </div>

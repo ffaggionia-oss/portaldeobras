@@ -213,13 +213,90 @@ function inputCeldaAdmin_(def, c, i, valor) {
     return `<select id="${id}" style="width:100%; min-width:100px;">${opts}</select>`;
   }
   const oninput = (def.tabla === 'tipos' && c.key === 'rendimiento') ? 'oninput="recalcularSugeridos()"' : '';
+  // Ancho según el contenido de la columna: el nombre del insumo necesita
+  // espacio para leerse completo; los números no.
+  const ANCHOS = { insumo: 280, tipo: 260, condicion: 240, nombre: 180, proveedor: 170, calculo: 140, categoria: 120 };
+  const minw = c.type === 'number' ? 80 : (ANCHOS[c.key] || 120);
+  const v = valor !== undefined ? valor : '';
   return `<input type="${c.type}" ${c.type === 'number' ? `step="${c.step || 'any'}"` : ''} ${oninput}
-    id="${id}" value="${escapeAttr(valor !== undefined ? valor : '')}" style="width:100%; min-width:90px;">`;
+    id="${id}" value="${escapeAttr(v)}" title="${escapeAttr(v)}" style="width:100%; min-width:${minw}px;">`;
+}
+
+const ADM_CATS_ABIERTAS = {};
+
+function filaAdminHtml_(def, it, i, esTipos, sinCategoria) {
+  const cols = sinCategoria ? def.columnas.filter(c => c.key !== 'categoria') : def.columnas;
+  return `
+    <tr style="${it.activo === false ? 'opacity:0.5;' : ''}">
+      ${cols.map(c => `<td>${inputCeldaAdmin_(def, c, i, it[c.key])}</td>`).join('')}
+      ${esTipos ? `<td style="text-align:center; white-space:nowrap;">
+        <span id="adm_tipos_sugerido_${i}" class="small-note">—</span>
+        <button type="button" class="btn-ghost" onclick="usarSugerido(${i})" title="Copiar el sugerido al costo">Usar</button>
+      </td>` : ''}
+      <td style="text-align:center;"><input type="checkbox" id="adm_${def.tabla}_activo_${i}" ${it.activo === false ? '' : 'checked'}></td>
+      <td style="text-align:center; white-space:nowrap;">
+        ${it.id
+          ? `<span class="small-note">${escapeHtml(it.id)}</span>`
+          : `<button type="button" class="btn-ghost" onclick="quitarFilaAdmin('${def.tabla}', ${i})">Quitar</button>`}
+      </td>
+    </tr>`;
+}
+
+// Materiales: agrupados por categoría en pestañas plegables. El resto de las
+// tablas (más cortas) siguen como tabla simple.
+function cuerpoMaterialesAgrupado_(def) {
+  const items = (ADMIN_MAESTRO && ADMIN_MAESTRO[def.tabla]) || [];
+  const cats = [];
+  const porCat = {};
+  items.forEach((it, i) => {
+    const c = it.categoria || '— Sin categoría (completar) —';
+    if (!porCat[c]) { porCat[c] = []; cats.push(c); }
+    porCat[c].push({ it, i });
+  });
+  // El grupo 'Sin categoría' (filas nuevas) va primero, como dice la ayuda.
+  cats.sort((a, b) => (a.indexOf('Sin categoría') !== -1 ? -1 : (b.indexOf('Sin categoría') !== -1 ? 1 : 0)));
+  // OJO: dentro de un grupo la columna Categoría se sigue mostrando (angosta)
+  // para poder mover un ítem de grupo editándola.
+  const thead = `<thead><tr>${def.columnas.map(c => `<th>${escapeHtml(c.label)}</th>`).join('')}<th>Activo</th><th>ID</th></tr></thead>`;
+  return cats.map(cat => {
+    const arr = porCat[cat];
+    const inactivos = arr.filter(x => x.it.activo === false).length;
+    const esNueva = cat.indexOf('Sin categoría') !== -1;
+    const abierta = esNueva ? true : (typeof ADM_CATS_ABIERTAS[cat] === 'boolean' ? ADM_CATS_ABIERTAS[cat] : false);
+    return `
+    <details ${abierta ? 'open' : ''} ontoggle="ADM_CATS_ABIERTAS['${escapeAttr(cat)}']=this.open" style="border:1px solid var(--line,#555); border-radius:8px; margin-bottom:10px; padding:0 10px;">
+      <summary style="cursor:pointer; padding:12px 4px; font-weight:700; font-size:14px; list-style-position:inside;">
+        ${escapeHtml(cat)} <span class="small-note" style="font-weight:400; margin-left:8px;">${arr.length} ítem${arr.length === 1 ? '' : 's'}${inactivos ? ' · ' + inactivos + ' inactivo' + (inactivos === 1 ? '' : 's') : ''}</span>
+      </summary>
+      <div style="overflow-x:auto;">
+      <table class="calc-table" style="margin-bottom:10px;">
+        ${thead}
+        <tbody>${arr.map(x => filaAdminHtml_(def, x.it, x.i, false, false)).join('')}</tbody>
+      </table>
+      </div>
+    </details>`;
+  }).join('') || `<div class="small-note">Sin ítems todavía.</div>`;
 }
 
 function renderTablaAdmin(def) {
   const items = (ADMIN_MAESTRO && ADMIN_MAESTRO[def.tabla]) || [];
   const esTipos = def.tabla === 'tipos';
+
+  if (def.tabla === 'materiales') {
+    return `
+    <div class="section">
+      <div class="section-title">${escapeHtml(def.titulo)} <span class="small-note" style="font-weight:400;">— por categoría: abrí la que necesites</span></div>
+      ${cuerpoMaterialesAgrupado_(def)}
+      <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+        <button type="button" class="add-row-btn" onclick="agregarFilaAdmin('${def.tabla}')">+ Agregar</button>
+        <button type="button" class="btn-primary" onclick="guardarTablaAdmin('${def.tabla}')">Guardar cambios</button>
+      </div>
+      <div class="small-note" style="margin-top:6px;">Al agregar, la fila nueva aparece arriba en "Sin categoría": completale la categoría y al guardar se acomoda en su grupo.</div>
+      <div class="small-note" id="adm_status_${def.tabla}" style="margin-top:8px;"></div>
+      <div class="small-note" style="margin-top:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Últimos cambios</div>
+      <div id="adm_logs_${def.tabla}" class="small-note" style="margin-top:6px;">Cargando...</div>
+    </div>`;
+  }
 
   const rows = items.map((it, i) => `
     <tr style="${it.activo === false ? 'opacity:0.5;' : ''}">
