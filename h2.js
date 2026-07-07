@@ -187,11 +187,20 @@ function renderH2(obra) {
 
     <div class="section">
       <div class="section-title">📤 Entregable al colocador</div>
-      <div class="small-note">Genera y envía por mail al colocador asignado un PDF con: qué se va a hacer, con qué materiales (de H3 · Compras) y cuánto se le paga (mano de obra ajustada). Sin precios de cliente ni márgenes. Queda registrado en el hilo y en la carpeta <b>entregables</b> del Drive.</div>
-      ${currentUser.rol === 'gerencia'
-        ? `<button type="button" class="btn-primary" style="margin-top:10px;" onclick="enviarEntregable()">📤 Enviar entregable a ${escapeHtml(d.colocador || 'colocador')}</button>
-           <div class="small-note" id="entregable_status" style="margin-top:6px;"></div>`
-        : '<div class="small-note" style="margin-top:8px;">El envío del entregable lo hace Gerencia.</div>'}
+      <div class="small-note">El H2 se guarda y se envía <b>solo a tu equipo</b> (con el botón Guardar de siempre: mail + PDF del sistema definido — el colocador NO recibe nada todavía). El informe al colocador sale recién al cerrar el H3: <b>orden de pago</b> (mano de obra) + <b>compras</b> (materiales) + informe de colocación. Sin precios de cliente ni márgenes.</div>
+      ${(() => {
+        const h3d = currentObraData && currentObraData.h3;
+        const h3Cargado = !!(h3d && (parseFloat(h3d.mt2) > 0 && ((h3d.materiales || []).some(m => m.incluye) || h3d.tipoColocacionId)));
+        if (!h3Cargado) return `
+          <div style="border:2px solid var(--warn, #c77700); border-radius:8px; padding:14px; margin-top:12px;">
+            <div style="font-weight:800; letter-spacing:0.3px;">⚠ SE DEBE COMPLETAR EL H3 · COMPRAS PARA MANDARLE EL INFORME FINAL AL COLOCADOR (ORDEN DE PAGO Y COMPRAS)</div>
+            <button type="button" class="btn-primary" style="margin-top:12px;" onclick="switchHito('h3')">→ Completar H3 · Compras</button>
+          </div>`;
+        return currentUser.rol === 'gerencia'
+          ? `<button type="button" class="btn-primary" style="margin-top:10px;" onclick="enviarEntregable()">📤 Enviar informe final a ${escapeHtml(d.colocador || 'colocador')}</button>
+             <div class="small-note" id="entregable_status" style="margin-top:6px;"></div>`
+          : '<div class="small-note" style="margin-top:8px;">El envío del entregable lo hace Gerencia.</div>';
+      })()}
     </div>
 
     <div class="section">

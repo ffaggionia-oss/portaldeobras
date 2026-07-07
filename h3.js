@@ -34,6 +34,7 @@ function h3Default() {
     materiales: mergeMateriales([]),
     perifericos: mergePerifericos([]),
     tipoColocacionId: h3TipoDefaultId(),
+    tiposColocacion: [],
     costoCapataz: 150, costoAyudante: 75, cantAyudantes: 2,
     escaladores: mergeEscaladores([]),
     reductores: mergeReductores([]),
@@ -132,8 +133,17 @@ function h3CostoCalcular(d) {
   let costoPerifericos = 0;
   d.perifericos.forEach(p => { if ((parseFloat(p.cantidad) || 0) > 0 && mt2 > 0) costoPerifericos += ((parseFloat(p.costoUn) || 0) * (parseFloat(p.cantidad) || 0)) / mt2; });
 
-  const tipo = (MAESTRO.tipos || []).find(t => t.id === d.tipoColocacionId) || (MAESTRO.tipos || [])[0] || { costoMt2: 0 };
-  const moBase = parseFloat(tipo.costoMt2) || 0;
+  // MO: suma de TODOS los servicios tildados (cada uno con sus m²; si no se
+  // cargan, usa los m² de la obra). moBase queda expresado por m² de obra.
+  let servicios = Array.isArray(d.tiposColocacion) ? d.tiposColocacion.filter(x => x && x.id) : [];
+  if (!servicios.length && d.tipoColocacionId) servicios = [{ id: d.tipoColocacionId, mt2: mt2 }];
+  let moTotalBase = 0;
+  servicios.forEach(sv => {
+    const t = (MAESTRO.tipos || []).find(x => x.id === sv.id);
+    if (!t) return;
+    moTotalBase += (parseFloat(t.costoMt2) || 0) * (parseFloat(sv.mt2) || mt2);
+  });
+  const moBase = mt2 > 0 ? moTotalBase / mt2 : 0;
 
   let totalAmpliacion = 0;
   d.escaladores.forEach(e => { if (e.aplica) totalAmpliacion += parseFloat(e.pct) || 0; });
@@ -293,19 +303,26 @@ function renderH3(obra) {
     </div>
 
     <div class="section">
-      <div class="section-title">Mano de obra</div>
-      <div class="field-grid">
-        <div class="field"><label>Tipo de colocación</label>
-          <select id="h3_tipoColocacion" onchange="refreshH3()">
-            ${(MAESTRO.tipos || []).map(t => `<option value="${t.id}" ${d.tipoColocacionId === t.id ? 'selected' : ''}>${escapeHtml(t.tipo)} ($${t.costoMt2}/m²)</option>`).join('')}
-            ${!tipoSeleccionadoExiste && d.tipoColocacionId ? `<option value="${escapeAttr(d.tipoColocacionId)}" selected>(tipo dado de baja del Maestro — elegí uno nuevo)</option>` : ''}
-          </select>
-        </div>
-        <div class="field"><label>Costo capataz/día</label><div class="small-note" style="padding:10px 0;">$${d.costoCapataz}</div></div>
-        <div class="field"><label>Costo ayudante/día</label><div class="small-note" style="padding:10px 0;">$${d.costoAyudante}</div></div>
-        <div class="field"><label>Cant. ayudantes</label><input type="number" id="h3_cantAyudantes" value="${d.cantAyudantes}"></div>
-      </div>
-      <div class="small-note" style="margin-top:10px;">Costo base MO x Mt²: <strong>$${calc.moBase.toFixed(0)}</strong> → Ajustado: <strong>$${calc.moAjustada.toFixed(0)}</strong></div>
+      <div class="section-title">Servicios de colocación <span class="small-note" style="font-weight:400;">— tildá TODOS los que van a hacer los colocadores · los $/m² se regulan en ⚙ el Maestro, no acá</span></div>
+      <table class="calc-table">
+        <thead><tr><th>Servicio</th><th>$ / m²</th><th>m² del servicio</th><th>Subtotal MO</th><th>Incluir</th></tr></thead>
+        <tbody>
+        ${(MAESTRO.tipos || []).map(t => {
+          const sel = (d.tiposColocacion || []).find(x => x.id === t.id);
+          const mt2Srv = sel ? (parseFloat(sel.mt2) || 0) : 0;
+          return `
+          <tr>
+            <td>${escapeHtml(t.tipo)}</td>
+            <td class="num">$${(parseFloat(t.costoMt2) || 0).toFixed(2)}</td>
+            <td class="num">${sel ? `<input type="number" step="any" min="0" id="tc_mt2_${t.id}" value="${mt2Srv || ''}" placeholder="${calc.mt2}" style="width:90px;" onchange="refreshH3()">` : '<span class="small-note">—</span>'}</td>
+            <td class="num">${sel ? '$' + ((parseFloat(t.costoMt2) || 0) * (mt2Srv || calc.mt2)).toFixed(2) : '—'}</td>
+            <td style="text-align:center;"><input type="checkbox" id="tc_inc_${t.id}" ${sel ? 'checked' : ''} onchange="refreshH3()"></td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+      <div class="small-note" style="margin-top:8px;">Si no cargás los m² de un servicio, se toman los <b>${calc.mt2} m²</b> de la obra.</div>
+      <div class="small-note" style="margin-top:10px;">MO base de todos los servicios: <strong>$${(calc.moBase * calc.mt2).toFixed(2)}</strong> → Ajustada por dificultad/volumen: <strong>$${calc.totalColocadores.toFixed(2)}</strong></div>
     </div>
 
     <div class="section">
@@ -371,6 +388,24 @@ function renderH3(obra) {
     </div>
 
     <div class="section">
+      <div class="section-title">📤 Informe final al colocador — orden de pago y compras</div>
+      <div class="small-note">De este H3 sale el informe final que recibe el colocador: el sistema definido en H2, los materiales incluidos acá y <b>su pago</b> (USD ${calc.moAjustada.toFixed(2)}/m² × ${calc.mt2} m² = <b>USD ${calc.totalColocadores.toFixed(2)}</b>). Sin precios de cliente ni márgenes.</div>
+      ${(() => {
+        const coloc = (currentObraData && currentObraData.h2 && currentObraData.h2.colocador) || '';
+        if (!coloc) return `
+          <div style="border:2px solid var(--warn, #c77700); border-radius:8px; padding:12px; margin-top:10px;">
+            <div style="font-weight:700;">⚠ Falta asignar el colocador en H2 · Sistema constructivo.</div>
+            <button type="button" class="btn-primary" style="margin-top:10px;" onclick="switchHito('h2')">→ Ir a H2 a asignarlo</button>
+          </div>`;
+        return currentUser.rol === 'gerencia'
+          ? `<button type="button" class="btn-primary" style="margin-top:10px;" onclick="cerrarH3()">✅ Guardar y cerrar H3 — compras al equipo + informe y pago a ${escapeHtml(coloc)}</button>
+             <div class="small-note" style="margin-top:6px;">Un solo paso: guarda el H3, le manda al equipo la lista de compras (PDF) y al colocador el informe de colocación con su orden de pago y dónde ver planos y archivos.</div>
+             <div class="small-note" id="entregable_status" style="margin-top:6px;"></div>`
+          : '<div class="small-note" style="margin-top:8px;">El cierre del H3 y el envío del informe los hace Gerencia.</div>';
+      })()}
+    </div>
+
+    <div class="section">
       <div class="section-title">Estado del hito</div>
       <div class="check-row">
         <input type="checkbox" id="h3_completo" ${d._completo ? 'checked' : ''} onchange="refreshH3()">
@@ -426,7 +461,19 @@ function collectH3() {
     cliente: h3ClienteDesdeH1_(currentObraData) || prev.cliente,
     mt2: _mt2H1 > 0 ? _mt2H1 : (val('h3_mt2') || prev.mt2),
     materiales, perifericos, escaladores, reductores,
-    tipoColocacionId: document.getElementById('h3_tipoColocacion') ? document.getElementById('h3_tipoColocacion').value : prev.tipoColocacionId,
+    tiposColocacion: (function(){
+      const hayTabla = (MAESTRO.tipos || []).some(t => document.getElementById('tc_inc_' + t.id));
+      if (!hayTabla) return prev.tiposColocacion || (prev.tipoColocacionId ? [{ id: prev.tipoColocacionId, mt2: '' }] : []);
+      return (MAESTRO.tipos || []).filter(t => { const e = document.getElementById('tc_inc_' + t.id); return e && e.checked; })
+        .map(t => { const e = document.getElementById('tc_mt2_' + t.id); return { id: t.id, mt2: e ? e.value : '' }; });
+    })(),
+    tipoColocacionId: (function(){
+      // compat: el primer servicio tildado (por si el backend viejo lo mira)
+      const hayTabla = (MAESTRO.tipos || []).some(t => document.getElementById('tc_inc_' + t.id));
+      if (!hayTabla) return prev.tipoColocacionId;
+      const primero = (MAESTRO.tipos || []).find(t => { const e = document.getElementById('tc_inc_' + t.id); return e && e.checked; });
+      return primero ? primero.id : '';
+    })(),
     costoCapataz: prev.costoCapataz, // sin input en el hito: sólo informativo
     costoAyudante: prev.costoAyudante,
     cantAyudantes: parseFloat(val('h3_cantAyudantes')) || prev.cantAyudantes,
@@ -462,7 +509,8 @@ function diffH3Preview() {
   const t = [];
   const mt2o = parseFloat(o.mt2)||0, mt2n = parseFloat(nuevo.mt2)||0;
   if (mt2o !== mt2n) t.push('m²: ' + mt2o + ' → ' + mt2n);
-  if ((o.tipoColocacionId||'') !== (nuevo.tipoColocacionId||'')) t.push('cambió el tipo de colocación');
+  const srvIds = arr => (Array.isArray(arr) ? arr.map(x => x.id + ':' + (x.mt2 || '')).sort().join(',') : '');
+  if (srvIds(o.tiposColocacion) !== srvIds(nuevo.tiposColocacion) || (o.tipoColocacionId||'') !== (nuevo.tipoColocacionId||'')) t.push('cambió los servicios de colocación');
   const om = {}; (o.materiales||[]).forEach(m=>{ om[m.id]=!!m.incluye; });
   (nuevo.materiales||[]).forEach(m=>{
     if (!om[m.id] && m.incluye) t.push('＋ ' + m.insumo);
@@ -512,13 +560,34 @@ function abrirModalGuardarH3() {
   document.body.appendChild(div);
 }
 
+// Flag: el próximo guardado también envía el informe final al colocador
+let h3EnviarInformeTrasGuardar = false;
+
+function cerrarH3() {
+  h3EnviarInformeTrasGuardar = true;
+  abrirModalGuardarH3();
+  const btn = document.getElementById('gh3Btn');
+  if (btn) btn.textContent = '✓ Guardar y enviar todo';
+}
+
 async function confirmarGuardarH3() {
   const btn = document.getElementById('gh3Btn');
   btn.disabled = true; btn.textContent = 'Guardando…';
   const comentario = document.getElementById('gh3Comentario').value.trim();
-  const res = await guardarH3ConComentario(comentario);
+  const enviarInforme = h3EnviarInformeTrasGuardar;
+  h3EnviarInformeTrasGuardar = false;
+  let res;
+  try { res = await guardarH3ConComentario(comentario); }
+  catch (err) { res = { ok: false, error: String(err && err.message || err) }; }
   const modal = document.getElementById('modalGuardarH3');
   if (modal) modal.remove();
-  if (res.ok) { await reloadObra(); }
-  else { alert('Error al guardar: ' + (res.error||'')); }
+  if (!res.ok) { alert('Error al guardar: ' + (res.error||'')); return; }
+  if (enviarInforme) {
+    // Con el H3 recién guardado, sale el informe final al colocador.
+    // (si el envío falla, el error queda visible en la sección del informe;
+    // el guardado ya está hecho igual)
+    try { await enviarEntregable(); } catch (e) {}
+    return;
+  }
+  await reloadObra();
 }
