@@ -53,6 +53,11 @@ function renderH2(obra) {
   d.tipoObra = Object.assign(h2Default().tipoObra, (obra.h2 && obra.h2.tipoObra) || {});
 
   return `
+    <div class="small-note" style="margin-bottom:14px;">
+      <b>H2 = DEFINICIÓN.</b> El H1 fue el diagnóstico (qué hay en la obra y qué se vendió, ¿hay que recotizar?). Acá se define
+      <b>qué se va a hacer y cómo</b>: sistema constructivo, planos y documentación. De este hito sale el
+      <b>entregable automático al colocador</b> — lo que definas acá es lo que él recibe.
+    </div>
     <div class="section">
       <div class="section-title">01 · Datos de la obra</div>
       <div class="small-note" style="margin-bottom:10px;">Los datos del cliente viven en H1 y en el Inicio de la obra — acá solo lo propio del sistema constructivo.</div>

@@ -1,9 +1,22 @@
 // ============================================
 // H1 — Diagnóstico Inicial de Obra
+// PARA QUÉ SIRVE: es la visita del FISCAL DE OBRA. Va a la obra, contrasta
+// lo que se VENDIÓ (cotización) contra lo que la obra realmente necesita,
+// y detecta si hay que RECOTIZAR algo antes de definir nada. El H2 viene
+// después: ahí se define QUÉ se hace y CÓMO (sistema constructivo).
 // TODO ítem del relevamiento se responde con SÍ / NO + especificación.
 // Nada queda ambiguo: lo que no se respondió aparece como "SIN RESPONDER"
 // (acá y en el entregable), así se ve de un vistazo qué falta relevar.
 // ============================================
+
+// Contraste con lo vendido: el corazón del diagnóstico del fiscal.
+const H1_CONTRASTE_VENTA = [
+  '¿Lo relevado en obra coincide con lo que se vendió en la cotización?',
+  '¿Los m² vendidos alcanzan para lo que pide la obra?',
+  '¿El producto vendido es apto para la situación real de la obra (uso, exposición, soporte)?',
+  '¿El cliente pidió algo adicional a lo vendido? → Detallar',
+  '¿Hay que RECOTIZAR algo? → Detallar qué y por qué'
+];
 
 const H1_CHECKLIST_REVESTIMIENTO = [
   'Sistema de alfajías a tabique — ¿Madera, plástica o PGO? Definir espesor',
@@ -72,6 +85,7 @@ function h1Default() {
     mt2Franco: '', mt2Relevados: '', barrioPrivado: '', casaODepto: '', tipoProducto: '', productos: [],
     tipoInstalacion: { revestimiento: false, deck: false, pisos: false, sauna: false, otro: false, otroEspecificar: '' },
     interiorExterior: '',
+    contrasteVenta: H1_CONTRASTE_VENTA.map(item => ({ item, respuesta: '', nota: '' })),
     revestimientoChecklist: H1_CHECKLIST_REVESTIMIENTO.map(item => ({ item, respuesta: '', nota: '' })),
     revestimientoNotas: '',
     deckChecklist: H1_CHECKLIST_DECK.map(item => ({ item, respuesta: '', nota: '' })),
@@ -154,18 +168,32 @@ function renderH1(obra) {
   `).join('');
 
   const html = `
+    <div class="small-note" style="margin-bottom:14px;">
+      <b>H1 = DIAGNÓSTICO del fiscal de obra.</b> Relevar qué hay en la obra, contrastarlo con <b>lo que se vendió</b>
+      y detectar si hay que <b>recotizar</b>. Lo que se defina (sistema, planos, entregable al colocador) va después, en H2.
+    </div>
     <div class="section">
       <div class="section-title">1 · Datos generales</div>
-      <div class="small-note" style="margin-bottom:10px;">La ficha del cliente se carga UNA sola vez acá (o llega precargada de la cotización) y se muestra en el Inicio de la obra. Los demás hitos no la repiten.</div>
+      <div class="small-note" style="margin-bottom:10px;">El H1 es el diagnóstico del fiscal de obra: va a la obra, releva qué hay que hacer y lo contrasta con lo que se vendió (para recotizar si hace falta). La ficha del cliente se carga UNA sola vez acá (o llega precargada de la cotización); los demás hitos no la repiten.</div>
       <div class="field-grid">
         <div class="field"><label>Cliente</label><input type="text" id="h1_cliente" value="${escapeAttr(d.cliente)}"></div>
         <div class="field"><label>Fecha de visita</label><input type="date" id="h1_fechaVisita" value="${escapeAttr(d.fechaVisita)}"></div>
         <div class="field"><label>Dirección / Lote</label><input type="text" id="h1_direccion" value="${escapeAttr(d.direccion || (d._clienteFicha&&d._clienteFicha.direccion) || '')}"></div>
         <div class="field"><label>Contacto</label><input type="text" id="h1_contacto" value="${escapeAttr(d.contacto || (d._clienteFicha&&d._clienteFicha.contacto) || '')}"></div>
-        <div class="field"><label>Teléfono</label><input type="text" id="h1_telefono" value="${escapeAttr(d.telefono || (d._clienteFicha&&d._clienteFicha.telefono) || '')}"></div>
+        <div class="field"><label>Teléfono</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="h1_telefono" value="${escapeAttr(d.telefono || (d._clienteFicha&&d._clienteFicha.telefono) || '')}" style="flex:1;">
+            <button type="button" class="btn-secondary" title="Escribir por WhatsApp" onclick="abrirWhatsApp(document.getElementById('h1_telefono').value)">💬</button>
+          </div>
+        </div>
         <div class="field"><label>Email</label><input type="text" id="h1_email" value="${escapeAttr(d.email || (d._clienteFicha&&d._clienteFicha.email) || '')}"></div>
         <div class="field"><label>Estudio / Arquitecto</label><input type="text" id="h1_estudio" value="${escapeAttr(d.estudio)}"></div>
-        <div class="field"><label>Teléfono arquitecto</label><input type="text" id="h1_telefonoArquitecto" value="${escapeAttr(d.telefonoArquitecto)}"></div>
+        <div class="field"><label>Teléfono arquitecto</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="h1_telefonoArquitecto" value="${escapeAttr(d.telefonoArquitecto)}" style="flex:1;">
+            <button type="button" class="btn-secondary" title="Escribir por WhatsApp" onclick="abrirWhatsApp(document.getElementById('h1_telefonoArquitecto').value)">💬</button>
+          </div>
+        </div>
         <div class="field"><label>Mt² (Franco)</label><input type="number" id="h1_mt2Franco" value="${escapeAttr(d.mt2Franco)}"></div>
         <div class="field"><label>Mt² relevados</label><input type="number" id="h1_mt2Relevados" value="${escapeAttr(d.mt2Relevados)}"></div>
         <div class="field"><label>¿Barrio privado?</label>
@@ -211,6 +239,15 @@ function renderH1(obra) {
       <div class="radio-group" id="h1_interiorExterior" data-value="${escapeAttr(d.interiorExterior)}">
         ${['Interior','Exterior'].map(v => `<div class="radio-chip ${d.interiorExterior===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
       </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">4 · Contraste con la venta <span class="small-note" style="font-weight:400;">— el corazón del diagnóstico: ¿lo vendido coincide con la realidad de la obra?</span></div>
+      <div class="small-note" style="margin-bottom:10px;">
+        Vendido: <b>${escapeAttr(d.mt2Franco || '—')} m²</b> (Franco) · Relevado: <b>${escapeAttr(d.mt2Relevados || '—')} m²</b>
+        ${(d.productos||[]).length ? '· Producto/s: ' + (d.productos||[]).map(escapeHtml).join(' · ') : ''}
+      </div>
+      ${checklistHtml(d.contrasteVenta, 'venta')}
     </div>
 
     ${!d.tipoInstalacion.revestimiento ? '' : `<div class="section">
@@ -351,6 +388,7 @@ function collectH1() {
       otroEspecificar: valS('h1_ti_otroEspecificar', prev.tipoInstalacion.otroEspecificar || '')
     },
     interiorExterior: chipS('h1_interiorExterior', prev.interiorExterior),
+    contrasteVenta: collectChecklist(H1_CONTRASTE_VENTA, 'venta', prev.contrasteVenta),
     revestimientoChecklist: collectChecklist(H1_CHECKLIST_REVESTIMIENTO, 'rev', prev.revestimientoChecklist),
     revestimientoNotas: valS('h1_revestimientoNotas', prev.revestimientoNotas),
     deckChecklist: collectChecklist(H1_CHECKLIST_DECK, 'deck', prev.deckChecklist),

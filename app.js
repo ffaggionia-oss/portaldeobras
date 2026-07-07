@@ -678,10 +678,11 @@ function renderChatObra(obra) {
   const fb = h1f._clienteFicha || {};
   const F = (k) => h1f[k] || fb[k] || '';
   if (F('contacto')) chips.push('<span class="estado-pill">👤 ' + escapeHtml(F('contacto')) + '</span>');
-  if (F('telefono')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="tel:' + escapeAttr(String(F('telefono')).replace(/[^\d+]/g,'')) + '">📞 ' + escapeHtml(F('telefono')) + '</a>');
-  if (h1f.estudio) chips.push('<span class="estado-pill">📐 ' + escapeHtml(h1f.estudio) + (h1f.telefonoArquitecto ? ' · <a style="text-decoration:none;color:inherit;" href="tel:' + escapeAttr(String(h1f.telefonoArquitecto).replace(/[^\d+]/g,'')) + '">' + escapeHtml(h1f.telefonoArquitecto) + '</a>' : '') + '</span>');
+  if (F('telefono')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" title="Escribir por WhatsApp" href="' + escapeAttr(waUrl(F('telefono'))) + '">💬 ' + escapeHtml(F('telefono')) + '</a>');
+  if (h1f.estudio) chips.push('<span class="estado-pill">📐 ' + escapeHtml(h1f.estudio) + (h1f.telefonoArquitecto ? ' · <a style="text-decoration:none;color:inherit;" target="_blank" title="Escribir por WhatsApp" href="' + escapeAttr(waUrl(h1f.telefonoArquitecto)) + '">💬 ' + escapeHtml(h1f.telefonoArquitecto) + '</a>' : '') + '</span>');
   if (F('direccion')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" href="https://www.google.com/maps/search/' + encodeURIComponent(F('direccion')) + '">📍 ' + escapeHtml(F('direccion')) + '</a>');
   if (F('email')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="mailto:' + escapeAttr(F('email')) + '">✉ ' + escapeHtml(F('email')) + '</a>');
+  if (obra.carpetaUrl) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" title="Todo lo de esta obra se guarda acá (fotos, planos, remitos, facturas, compras, informes, entregables)" href="' + escapeAttr(obra.carpetaUrl) + '">📂 Carpeta Drive</a>');
   const accesos = [];
   const rt = ROLE_TABS[currentUser.rol] || [];
   if (rt.indexOf('h3') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h3\')">🛒 Compras</span>');
@@ -694,11 +695,19 @@ function renderChatObra(obra) {
     ? '<div class="small-note">Sin fotos ni planos todavía. <span class="btn-ghost" style="padding:0;" onclick="switchHito(\'fotos\')">Subir →</span></div>'
     : '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(96px,1fr));gap:8px;">' +
       fotos.map(f => {
-        const esImagen = /\.(jpe?g|png|gif|webp)$/i.test(f.name);
+        const esImagen = /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name);
+        const esVideo = /\.(mp4|mov|m4v|avi|mkv|webm|3gp)$/i.test(f.name);
+        const thumb = driveThumb_(f.url, 300);
+        const thumbAlt = driveThumbAlt_(f.url, 300);
+        let prev;
+        if ((esImagen || esVideo) && thumb) {
+          prev = `<div style="position:relative;"><img src="${escapeAttr(thumb)}" data-alt="${escapeAttr(thumbAlt)}" data-h="72" loading="lazy" style="width:100%;height:72px;object-fit:cover;display:block;" onerror="fotoImgFallback(this,'${esVideo ? '🎬' : '🖼'}')">` +
+            (esVideo ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;text-shadow:0 0 8px rgba(0,0,0,.6);">▶️</div>' : '') + '</div>';
+        } else {
+          prev = `<div style="width:100%;height:72px;display:flex;align-items:center;justify-content:center;font-size:11px;">📄 PDF</div>`;
+        }
         return `<a href="${escapeAttr(f.url)}" target="_blank" style="display:block;border:1px solid var(--line,#555);border-radius:6px;overflow:hidden;text-decoration:none;color:inherit;">` +
-          (esImagen
-            ? `<img src="${escapeAttr(f.url)}" style="width:100%;height:72px;object-fit:cover;display:block;">`
-            : `<div style="width:100%;height:72px;display:flex;align-items:center;justify-content:center;font-size:11px;">📄 PDF</div>`) +
+          prev +
           `<div style="padding:4px 6px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</div></a>`;
       }).join('') + '</div>';
 
@@ -752,4 +761,28 @@ async function enviarComentarioObra() {
     btn.disabled = false; btn.textContent = 'Comentar';
     status.textContent = 'Error de conexión';
   }
+}
+
+// ============================================
+// WhatsApp directo desde un teléfono argentino escrito "como sea"
+// (011 4444-5555, 15-1234-5678, +54 9 11..., etc.) → https://wa.me/549...
+// ============================================
+function waNumero_(tel) {
+  let n = String(tel || '').replace(/\D/g, '');
+  if (!n) return '';
+  if (n.indexOf('549') === 0) return n;              // ya viene completo
+  if (n.indexOf('54') === 0) return '549' + n.slice(2).replace(/^9/, ''); // +54 sin el 9
+  if (n.charAt(0) === '0') n = n.slice(1);           // 011... → 11...
+  // celular escrito con 15 después del área (ej: 11 15 1234 5678)
+  n = n.replace(/^(\d{2,4})15(\d{6,8})$/, '$1$2');
+  return '549' + n;
+}
+function waUrl(tel) {
+  const n = waNumero_(tel);
+  return n ? 'https://wa.me/' + n : '#';
+}
+function abrirWhatsApp(tel) {
+  const n = waNumero_(tel);
+  if (!n || n.length < 11) { alert('Cargá un teléfono válido primero.'); return; }
+  window.open('https://wa.me/' + n, '_blank');
 }
