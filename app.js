@@ -602,7 +602,14 @@ async function confirmarGuardarHito(hito) {
   const btn = document.getElementById('gHitoBtn');
   btn.disabled = true; btn.textContent = 'Guardando…';
   const comentario = document.getElementById('gHitoComentario').value.trim();
-  const res = await guardarHitoConComentario(hito, comentario);
+  let res;
+  try {
+    res = await guardarHitoConComentario(hito, comentario);
+  } catch (err) {
+    // Cualquier error inesperado (al juntar los datos o al enviar) NO puede
+    // dejar el botón clavado en "Guardando…": se muestra y se libera.
+    res = { ok: false, error: String(err && err.message || err) };
+  }
   const modal = document.getElementById('modalGuardarHito');
   if (modal) modal.remove();
   if (res.ok) { await reloadObra(); }

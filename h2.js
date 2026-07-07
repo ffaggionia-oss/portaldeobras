@@ -15,9 +15,9 @@ function h2Default() {
     rev_remates: [], rev_remateAltura: '',
     rev_notas: '',
     par_perfil: '', par_link: '', par_mt2Vanos: '', par_anclaje: '', par_anclajeEspecificar: '', par_notas: '',
-    deck_apoyo: '', deck_apoyoEspecificar: '',
+    deck_apoyo: '', deck_apoyos: [], deck_apoyoEspecificar: '',
     deck_estructura: '', deck_estructuraEspecificar: '',
-    deck_fijacionTabla: '',
+    deck_fijacionTabla: '', deck_disenio: '', deck_notas: '',
     piso_estadoSoporte: '', piso_estadoEspecificar: '',
     piso_sistema: [], piso_sistemaEspecificar: '',
     piso_problemasPrevios: [],
@@ -27,6 +27,7 @@ function h2Default() {
   };
 }
 
+const H2_DECK_APOYO_OPTS = ['Estructura sobre carpeta directo','Necesita Nivelación de Carpeta','Sobre patas hasta 15 cm','Sobre patas más de 15 cm','Con desniveles / escalones','Necesita movimiento de tierra previo','Necesita remoción de deck anterior','Superficie requiere albañilería previa'];
 const H2_REV_FIJA_OPTS = ['Mampostería sólida (ladrillo / hormigón)', 'Tabique de durlock o similar', 'Estructura metálica existente', 'Estructura Metálica a Fabricar'];
 const H2_REV_TRATAMIENTO_OPTS = ['Imprimación de muro previo', 'Siliconado de tarugos'];
 const H2_REV_ESTRUCTURA_OPTS = ['Fachada Ventilada', 'Alfajías de Madera Pino CCA', 'Alfajías metálicas PGO galvanizado', 'Madera plástica WoodPlast', 'Estructura de Hierro', 'Otro'];
@@ -44,8 +45,14 @@ function multiCheckGroup(options, selectedArr, idPrefix) {
   `).join('');
 }
 
-function collectMultiCheck(options, idPrefix) {
-  return options.filter((opt, i) => document.getElementById(`${idPrefix}_${i}`).checked);
+function collectMultiCheck(options, idPrefix, prevArr) {
+  // Si la sección no está dibujada (tipo de obra sin tildar) se conserva lo
+  // guardado — antes esto tiraba un error y el guardado quedaba colgado.
+  if (!document.getElementById(idPrefix + '_0')) return prevArr || [];
+  return options.filter((opt, i) => {
+    const e = document.getElementById(`${idPrefix}_${i}`);
+    return e && e.checked;
+  });
 }
 
 function renderH2(obra) {
@@ -142,10 +149,8 @@ function renderH2(obra) {
 
     ${!d.tipoObra.deck ? '' : `<div class="section">
       <div class="section-title">05 · Deck</div>
-      <div class="small-note" style="margin-bottom:8px; font-weight:600; text-transform:uppercase;">¿Cómo va apoyado?</div>
-      <div class="radio-group" id="h2_deck_apoyo" data-value="${escapeAttr(d.deck_apoyo)}">
-        ${['Estructura sobre carpeta directo','Necesita Nivelación de Carpeta','Sobre patas hasta 15 cm','Sobre patas más de 15 cm','Con desniveles / escalones','Necesita movimiento de tierra previo','Necesita remoción de deck anterior','Superficie requiere albañilería previa'].map(v => `<div class="radio-chip ${d.deck_apoyo===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
-      </div>
+      <div class="small-note" style="margin-bottom:8px; font-weight:600; text-transform:uppercase;">¿Cómo va apoyado? <span style="font-weight:400;text-transform:none;">(puede ser más de uno)</span></div>
+      ${multiCheckGroup(H2_DECK_APOYO_OPTS, (d.deck_apoyos && d.deck_apoyos.length ? d.deck_apoyos : (d.deck_apoyo ? [d.deck_apoyo] : [])), 'h2_deck_apo')}
       <div class="field full" style="margin-top:8px;"><label>Especificar</label><input type="text" id="h2_deck_apoyoEspecificar" value="${escapeAttr(d.deck_apoyoEspecificar)}"></div>
 
       <div class="small-note" style="margin:16px 0 8px; font-weight:600; text-transform:uppercase;">Estructura</div>
@@ -158,6 +163,8 @@ function renderH2(obra) {
       <div class="radio-group" id="h2_deck_fijacionTabla" data-value="${escapeAttr(d.deck_fijacionTabla)}">
         ${['Clip Thermory','Otro Clip','Tornillería'].map(v => `<div class="radio-chip ${d.deck_fijacionTabla===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
       </div>
+      <div class="field full" style="margin-top:14px;"><label>Diseño técnico (referencia a plano / croquis en Fotos)</label><input type="text" id="h2_deck_disenio" value="${escapeAttr(d.deck_disenio||'')}"></div>
+      <div class="field full" style="margin-top:8px;"><label>Notas sobre deck</label><textarea id="h2_deck_notas">${escapeHtml(d.deck_notas||'')}</textarea></div>
     </div>`}
 
     ${!d.tipoObra.piso ? '' : `<div class="section">
@@ -221,17 +228,17 @@ function collectH2() {
     rev_fijaA: chipVal('h2_rev_fijaA'), rev_fijaEspecificar: val('h2_rev_fijaEspecificar'),
     rev_tratamiento: chipVal('h2_rev_tratamiento'), rev_tratamientoEspecificar: val('h2_rev_tratamientoEspecificar'),
     rev_estructura: chipVal('h2_rev_estructura'), rev_estructuraEspecificar: val('h2_rev_estructuraEspecificar'),
-    rev_aplicacion: collectMultiCheck(H2_REV_APLICACION_OPTS, 'h2_rev_apl'), rev_aplicacionEspecificar: val('h2_rev_aplicacionEspecificar'),
-    rev_remates: collectMultiCheck(H2_REV_REMATES_OPTS, 'h2_rev_rem'), rev_remateAltura: val('h2_rev_remateAltura'),
+    rev_aplicacion: collectMultiCheck(H2_REV_APLICACION_OPTS, 'h2_rev_apl', prev.rev_aplicacion), rev_aplicacionEspecificar: val('h2_rev_aplicacionEspecificar'),
+    rev_remates: collectMultiCheck(H2_REV_REMATES_OPTS, 'h2_rev_rem', prev.rev_remates), rev_remateAltura: val('h2_rev_remateAltura'),
     rev_notas: val('h2_rev_notas'),
     par_perfil: val('h2_par_perfil'), par_link: val('h2_par_link'), par_mt2Vanos: val('h2_par_mt2Vanos'),
     par_anclaje: chipVal('h2_par_anclaje'), par_anclajeEspecificar: val('h2_par_anclajeEspecificar'), par_notas: val('h2_par_notas'),
-    deck_apoyo: chipVal('h2_deck_apoyo'), deck_apoyoEspecificar: val('h2_deck_apoyoEspecificar'),
+    deck_apoyo: '', deck_apoyos: collectMultiCheck(H2_DECK_APOYO_OPTS, 'h2_deck_apo', (prev.deck_apoyos && prev.deck_apoyos.length ? prev.deck_apoyos : (prev.deck_apoyo ? [prev.deck_apoyo] : []))), deck_apoyoEspecificar: val('h2_deck_apoyoEspecificar'),
     deck_estructura: chipVal('h2_deck_estructura'), deck_estructuraEspecificar: val('h2_deck_estructuraEspecificar'),
-    deck_fijacionTabla: chipVal('h2_deck_fijacionTabla'),
+    deck_fijacionTabla: chipVal('h2_deck_fijacionTabla'), deck_disenio: val('h2_deck_disenio'), deck_notas: val('h2_deck_notas'),
     piso_estadoSoporte: chipVal('h2_piso_estadoSoporte'), piso_estadoEspecificar: val('h2_piso_estadoEspecificar'),
-    piso_sistema: collectMultiCheck(H2_PISO_SISTEMA_OPTS, 'h2_piso_sis'), piso_sistemaEspecificar: val('h2_piso_sistemaEspecificar'),
-    piso_problemasPrevios: collectMultiCheck(H2_PISO_PROBLEMAS_OPTS, 'h2_piso_prob'),
+    piso_sistema: collectMultiCheck(H2_PISO_SISTEMA_OPTS, 'h2_piso_sis', prev.piso_sistema), piso_sistemaEspecificar: val('h2_piso_sistemaEspecificar'),
+    piso_problemasPrevios: collectMultiCheck(H2_PISO_PROBLEMAS_OPTS, 'h2_piso_prob', prev.piso_problemasPrevios),
     piso_notas: val('h2_piso_notas'),
     driveLink: val('h2_driveLink'),
     _completo: document.getElementById('h2_completo') ? (el('h2_completo') ? el('h2_completo').checked : h2PrevChk_(prev, 'h2_completo')) : false
@@ -263,7 +270,11 @@ async function enviarEntregable() {
   if (hayCambiosSinGuardar() && !confirm('Tenés cambios sin guardar. El entregable se arma con lo GUARDADO. ¿Enviar igual?')) return;
   const st = document.getElementById('entregable_status');
   st.textContent = 'Generando y enviando…';
-  const res = await API.enviarEntregable(currentObraData.obraId, currentUser.token);
-  if (res.ok) { st.textContent = '✓ Enviado a ' + res.colocador + ' (' + res.email + ')'; await reloadObra(); }
-  else { st.textContent = 'Error: ' + res.error; }
+  try {
+    const res = await API.enviarEntregable(currentObraData.obraId, currentUser.token);
+    if (res.ok) { st.textContent = '✓ Enviado a ' + res.colocador + ' (' + res.email + ')'; await reloadObra(); }
+    else { st.textContent = '⚠ ' + (res.error || 'Error desconocido'); }
+  } catch (err) {
+    st.textContent = '⚠ Error de conexión al generar el entregable — probá de nuevo. Si sigue, avisale a Franco (detalle: ' + String(err && err.message || err) + ')';
+  }
 }

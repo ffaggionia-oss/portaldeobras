@@ -83,7 +83,7 @@ function h1Default() {
     cliente: '', colocador: '', fechaVisita: '', direccion: '',
     contacto: '', telefono: '', email: '', estudio: '', telefonoArquitecto: '',
     mt2Franco: '', mt2Relevados: '', barrioPrivado: '', casaODepto: '', tipoProducto: '', productos: [],
-    tipoInstalacion: { revestimiento: false, deck: false, pisos: false, sauna: false, otro: false, otroEspecificar: '' },
+    tipoInstalacion: { revestimiento: false, revestimientoMt2: '', deck: false, deckMt2: '', pisos: false, pisosMt2: '', sauna: false, saunaMt2: '', otro: false, otroEspecificar: '' },
     interiorExterior: '',
     contrasteVenta: H1_CONTRASTE_VENTA.map(item => ({ item, respuesta: '', nota: '' })),
     revestimientoChecklist: H1_CHECKLIST_REVESTIMIENTO.map(item => ({ item, respuesta: '', nota: '' })),
@@ -221,11 +221,11 @@ function renderH1(obra) {
     </div>
 
     <div class="section">
-      <div class="section-title">2 · Tipo de instalación <span class="small-note" style="font-weight:400;">(activa solo las secciones que apliquen — nada de ruido)</span></div>
-      <div class="check-row"><input type="checkbox" id="h1_ti_revestimiento" ${d.tipoInstalacion.revestimiento?'checked':''} onchange="h1ToggleTipo()"><div class="check-text">Revestimiento</div></div>
-      <div class="check-row"><input type="checkbox" id="h1_ti_deck" ${d.tipoInstalacion.deck?'checked':''} onchange="h1ToggleTipo()"><div class="check-text">Deck</div></div>
-      <div class="check-row"><input type="checkbox" id="h1_ti_pisos" ${d.tipoInstalacion.pisos?'checked':''} onchange="h1ToggleTipo()"><div class="check-text">Pisos</div></div>
-      <div class="check-row"><input type="checkbox" id="h1_ti_sauna" ${d.tipoInstalacion.sauna?'checked':''} onchange="h1ToggleTipo()"><div class="check-text">Sauna</div></div>
+      <div class="section-title">2 · Tipo de instalación <span class="small-note" style="font-weight:400;">(activa solo las secciones que apliquen · anotá los m² de cada tipo si la obra mezcla varios)</span></div>
+      <div class="check-row" style="align-items:center;"><input type="checkbox" id="h1_ti_revestimiento" ${d.tipoInstalacion.revestimiento?'checked':''} onchange="h1ToggleTipo()"><div class="check-text" style="flex:1;">Revestimiento</div><input type="number" id="h1_ti_revestimientoMt2" placeholder="m²" title="m² de este tipo" style="width:90px;" value="${escapeAttr(d.tipoInstalacion.revestimientoMt2||'')}"></div>
+      <div class="check-row" style="align-items:center;"><input type="checkbox" id="h1_ti_deck" ${d.tipoInstalacion.deck?'checked':''} onchange="h1ToggleTipo()"><div class="check-text" style="flex:1;">Deck</div><input type="number" id="h1_ti_deckMt2" placeholder="m²" title="m² de este tipo" style="width:90px;" value="${escapeAttr(d.tipoInstalacion.deckMt2||'')}"></div>
+      <div class="check-row" style="align-items:center;"><input type="checkbox" id="h1_ti_pisos" ${d.tipoInstalacion.pisos?'checked':''} onchange="h1ToggleTipo()"><div class="check-text" style="flex:1;">Pisos</div><input type="number" id="h1_ti_pisosMt2" placeholder="m²" title="m² de este tipo" style="width:90px;" value="${escapeAttr(d.tipoInstalacion.pisosMt2||'')}"></div>
+      <div class="check-row" style="align-items:center;"><input type="checkbox" id="h1_ti_sauna" ${d.tipoInstalacion.sauna?'checked':''} onchange="h1ToggleTipo()"><div class="check-text" style="flex:1;">Sauna</div><input type="number" id="h1_ti_saunaMt2" placeholder="m²" title="m² de este tipo" style="width:90px;" value="${escapeAttr(d.tipoInstalacion.saunaMt2||'')}"></div>
       <div class="check-row">
         <input type="checkbox" id="h1_ti_otro" ${d.tipoInstalacion.otro?'checked':''} onchange="h1ToggleTipo()">
         <div class="check-label"><div class="check-text">Otro</div>
@@ -252,18 +252,21 @@ function renderH1(obra) {
 
     ${!d.tipoInstalacion.revestimiento ? '' : `<div class="section">
       <div class="section-title">Revestimiento <span class="small-note" style="font-weight:400;">— todo se responde Sí / No + especificación</span></div>
+      <div class="small-note" style="margin-bottom:10px;">📷 <b>Sacá fotos de cada sección</b> — <span class="btn-ghost" style="padding:0;" onclick="switchHito('fotos')">subirlas acá →</span></div>
       ${checklistHtml(d.revestimientoChecklist, 'rev')}
       <div class="field full" style="margin-top:14px;"><label>Notas sobre revestimientos</label><textarea id="h1_revestimientoNotas">${escapeHtml(d.revestimientoNotas)}</textarea></div>
     </div>`}
 
     ${!d.tipoInstalacion.deck ? '' : `<div class="section">
       <div class="section-title">Deck <span class="small-note" style="font-weight:400;">— todo se responde Sí / No + especificación</span></div>
+      <div class="small-note" style="margin-bottom:10px;">📷 <b>Sacá fotos de cada sección</b> — <span class="btn-ghost" style="padding:0;" onclick="switchHito('fotos')">subirlas acá →</span></div>
       ${checklistHtml(d.deckChecklist, 'deck')}
       <div class="field full" style="margin-top:14px;"><label>Notas sobre deck</label><textarea id="h1_deckNotas">${escapeHtml(d.deckNotas)}</textarea></div>
     </div>`}
 
     ${!d.tipoInstalacion.pisos ? '' : `<div class="section">
       <div class="section-title">Pisos <span class="small-note" style="font-weight:400;">— todo se responde Sí / No + especificación</span></div>
+      <div class="small-note" style="margin-bottom:10px;">📷 <b>Sacá fotos de cada sección</b> — <span class="btn-ghost" style="padding:0;" onclick="switchHito('fotos')">subirlas acá →</span></div>
       ${checklistHtml(d.pisosChecklist, 'pisos')}
       <div class="small-note" style="margin-top:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Toma de humedad por zona</div>
       <div id="humedad_container">
@@ -381,9 +384,13 @@ function collectH1() {
     productos: (prev.productos || []).slice(),   // se manejan con h1AgregarProducto / h1QuitarProducto
     tipoInstalacion: {
       revestimiento: chkS('h1_ti_revestimiento', prev.tipoInstalacion.revestimiento),
+      revestimientoMt2: valS('h1_ti_revestimientoMt2', prev.tipoInstalacion.revestimientoMt2 || ''),
       deck: chkS('h1_ti_deck', prev.tipoInstalacion.deck),
+      deckMt2: valS('h1_ti_deckMt2', prev.tipoInstalacion.deckMt2 || ''),
       pisos: chkS('h1_ti_pisos', prev.tipoInstalacion.pisos),
+      pisosMt2: valS('h1_ti_pisosMt2', prev.tipoInstalacion.pisosMt2 || ''),
       sauna: chkS('h1_ti_sauna', !!prev.tipoInstalacion.sauna),
+      saunaMt2: valS('h1_ti_saunaMt2', prev.tipoInstalacion.saunaMt2 || ''),
       otro: chkS('h1_ti_otro', !!prev.tipoInstalacion.otro),
       otroEspecificar: valS('h1_ti_otroEspecificar', prev.tipoInstalacion.otroEspecificar || '')
     },
