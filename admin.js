@@ -376,20 +376,27 @@ function quitarFilaAdmin(tabla, i) {
 async function guardarTablaAdmin(tabla) {
   guardarEdicionEnMemoria_(tabla);
   const status = document.getElementById(`adm_status_${tabla}`);
-  status.textContent = 'Guardando...';
+  status.textContent = 'Guardando…';
+  let msg;
   try {
     const res = await API.saveMaestro(tabla, ADMIN_MAESTRO[tabla] || [], currentUser.token);
     if (res.ok) {
       ADMIN_MAESTRO[tabla] = res.items;
-      await cargarMaestro(); // refresca el caché global que usan H3/H4/calculadora
-      status.textContent = '✓ Guardado ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      // El refresco del caché global (H3/H4/calculadora) corre en segundo
+      // plano: no hace falta esperarlo para confirmar el guardado.
+      try { cargarMaestro().catch(() => {}); } catch (e) {}
       renderAdminContent();
+      msg = '✓ Guardado ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     } else {
-      status.textContent = 'Error al guardar: ' + res.error;
+      msg = '⚠ Error al guardar: ' + (res.error || '');
     }
   } catch (err) {
-    status.textContent = 'Error de conexión al guardar';
+    msg = '⚠ Error de conexión al guardar — los cambios NO se aplicaron, probá de nuevo';
   }
+  // El re-dibujado recrea el elemento de estado vacío: el mensaje se escribe
+  // DESPUÉS, así la confirmación (o el error) queda a la vista.
+  const st2 = document.getElementById(`adm_status_${tabla}`);
+  if (st2) st2.textContent = msg;
 }
 
 
@@ -635,7 +642,7 @@ async function aplicarSyncPlanilla() {
       else { errores.push(tabla + ': ' + (res.error || 'error')); }
     } catch (e) { errores.push(tabla + ': error de conexión'); }
   }
-  await cargarMaestro(); // refresca el caché global de H3/H4/calculadora
+  try { cargarMaestro().catch(() => {}); } catch (e) {} // refresco del caché en segundo plano
   renderAdminContent();
   const out = document.getElementById('sync_planilla_out');
   if (out) {
