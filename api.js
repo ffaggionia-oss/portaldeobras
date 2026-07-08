@@ -125,6 +125,35 @@ const API = {
 
   // Reemplaza por completo una tabla del Maestro. Sólo Gerencia.
   // tabla: 'tipos' | 'materiales' | 'perifericos' | 'escaladores' | 'reductores' | 'segmentos'
+  // 📅 Calendario de colocadores
+  async calendario(token) {
+    const res = await fetch(`${CONFIG.API_URL}?action=calendario&token=${encodeURIComponent(token)}`);
+    return res.json();
+  },
+  async setFechaEntrada(obraId, fecha, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'setFechaEntrada', obraId, fecha, token })
+    });
+    return res.json();
+  },
+
+  // 🔧 Postventa
+  async crearPostventa(payload, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify(Object.assign({ action: 'crearPostventa', token }, payload))
+    });
+    return res.json();
+  },
+  async enviarOrdenPV(obraId, token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'enviarOrdenPV', obraId, token })
+    });
+    return res.json();
+  },
+
   async saveMaestro(tabla, items, token) {
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',

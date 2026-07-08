@@ -60,9 +60,11 @@ const HITO_LABELS = {
   h4: 'H4 · Financiero',
   h5: 'H5 · Remito final',
   fotos: 'Fotos y Planos',
-  chat: '🏠 Inicio'
+  chat: '🏠 Inicio',
+  pv: '🔧 Resumen postventa'
 };
 const HITO_ORDER = ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos'];
+const PV_TABS = { colocador: ['pv', 'fotos'], resto: ['chat', 'pv', 'fotos'] };
 const ROLE_TABS = {
   colocador:       ['h1', 'fotos'],
   compras_admin:   ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos'],
@@ -100,7 +102,8 @@ let hitoDirty = { h1: false, h2: false };
 // Ese guardado es lo ÚNICO que dispara el mail de actualización al equipo.
 function scheduleAutosave() {
   if (!currentObraData) return;
-  if (currentHito === 'h1') { currentObraData.h1 = collectH1(); hitoDirty.h1 = true; }
+  if (currentHito === 'pv') { currentObraData.h1 = collectPV(); hitoDirty.h1 = true; }
+  else if (currentHito === 'h1') { currentObraData.h1 = collectH1(); hitoDirty.h1 = true; }
   else if (currentHito === 'h2') { currentObraData.h2 = collectH2(); hitoDirty.h2 = true; }
   else return; // h3 maneja su dirty en refreshH3; h4/h5/fotos/chat guardan con acciones propias
   setSaveStatus('● Cambios sin guardar — tocá Guardar para aplicar y notificar', 'error');
@@ -209,7 +212,11 @@ async function renderHome() {
   app.innerHTML = `
     <div class="list-header">
       <h1>Obras activas</h1>
-      ${puedeCrear ? `<button class="btn-primary" onclick="openNuevaObraModal()">+ Nueva obra</button>` : ''}
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${puedeCrear ? `<button class="btn-secondary" onclick="abrirCalendario()">📅 Calendario de colocadores</button>` : ''}
+        ${puedeCrear ? `<button class="btn-secondary" onclick="openNuevaPostventaModal()">🔧 Nueva postventa</button>` : ''}
+        ${puedeCrear ? `<button class="btn-primary" onclick="openNuevaObraModal()">+ Nueva obra</button>` : ''}
+      </div>
     </div>
     <div id="obrasList"><div class="empty-state">Cargando...</div></div>
   `;
@@ -280,9 +287,9 @@ function renderObraCard(o) {
   return `
     <div class="obra-card" onclick="openObra('${o.obraId}')">
       <div>
-        <div class="nombre">${escapeHtml(o.cliente)} ${o.codigo ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--paper-dim);">· ${escapeHtml(o.codigo)}</span>` : ''}</div>
+        <div class="nombre">${o.tipo === 'postventa' ? '🔧 ' : ''}${escapeHtml(o.cliente)} ${o.codigo ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--paper-dim);">· ${escapeHtml(o.codigo)}</span>` : ''}</div>
         <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}</div>
-        ${renderProgresoDots(o.progreso)}
+        ${o.tipo === 'postventa' ? '' : renderProgresoDots(o.progreso)}
       </div>
       <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
     </div>
@@ -314,6 +321,7 @@ function toggleColapsable(listId, toggleId) {
 }
 
 function hitoCompleto(obra, hito) {
+  if (hito === 'pv') return !!(obra && obra.h1 && obra.h1._completo);
   if (hito === 'h1' || hito === 'h2' || hito === 'h3') return !!(obra[hito] && obra[hito]._completo);
   if (hito === 'h4') return !!(obra.h4 && obra.h4.completo);
   if (hito === 'h5') return !!(obra.h5 && obra.h5.length > 0);
@@ -349,6 +357,7 @@ function renderProgresoDots(progreso) {
 
 // Stepper completo: usado arriba de las solapas dentro de una obra.
 function renderStepperCompleto(obra) {
+  if (obra && obra.tipo === 'postventa') return '';
   const tabs = pasosProgreso();
   if (tabs.length === 0) return '';
   return `<div class="stepper">
@@ -412,8 +421,12 @@ async function openObra(obraId) {
   h3Snapshot = JSON.stringify(res.obra.h3 || null);
   h3Dirty = false;
   hitoDirty = { h1: false, h2: false };
-  const tabs = ROLE_TABS[currentUser.rol] || ['h1'];
-  currentHito = tabs[0];
+  if (res.obra.tipo === 'postventa') {
+    currentHito = 'pv';
+  } else {
+    const tabs = ROLE_TABS[currentUser.rol] || ['h1'];
+    currentHito = tabs[0];
+  }
   renderObraView();
 }
 
@@ -434,7 +447,11 @@ async function reloadObra() {
 function renderObraView() {
   const o = currentObraData;
   const app = document.getElementById('app');
-  const tabs = HITO_ORDER.filter(h => (ROLE_TABS[currentUser.rol] || []).indexOf(h) !== -1);
+  const esPV = currentObraData && currentObraData.tipo === 'postventa';
+  const tabs = esPV
+    ? (currentUser.rol === 'colocador' ? PV_TABS.colocador : PV_TABS.resto)
+    : HITO_ORDER.filter(h => (ROLE_TABS[currentUser.rol] || []).indexOf(h) !== -1);
+  if (esPV && tabs.indexOf(currentHito) === -1) currentHito = 'pv';
   app.innerHTML = `
     <div class="obra-header">
       <div class="back-link" onclick="goHome()">← Volver a obras</div>
@@ -442,6 +459,8 @@ function renderObraView() {
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:2px;">
         <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
         ${o.codigo ? `<span class="sub" style="font-family:var(--font-mono);">${escapeHtml(o.codigo)}</span>` : ''}
+        ${o.tipo === 'postventa' ? '<span class="estado-pill">🔧 Postventa</span>' : ''}
+        ${o.tipo !== 'postventa' && currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="openNuevaPostventaModal('${o.obraId}','${escapeAttr(o.cliente)}')">🔧 Crear postventa</span>` : ''}
         ${currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="eliminarObraActual()">🗑 Eliminar obra</span>` : ''}
       </div>
     </div>
@@ -459,7 +478,7 @@ function renderObraView() {
     </div>
     <div class="save-bar">
       <div class="save-status" id="saveStatus"></div>
-      ${(currentHito==='h1' || currentHito==='h2') ? `<button class="btn-primary" onclick="abrirModalGuardarHito('${currentHito}')">💾 Guardar cambios</button>` : ''}
+      ${(currentHito==='h1' || currentHito==='h2' || currentHito==='pv') ? `<button class="btn-primary" onclick="abrirModalGuardarHito('${currentHito}')">💾 Guardar cambios</button>` : ''}
     </div>
   `;
   renderCurrentHito();
@@ -474,6 +493,7 @@ async function switchHito(hito) {
 
 function renderCurrentHito() {
   const content = document.getElementById('hito-content');
+  if (currentHito === 'pv') content.innerHTML = renderPV(currentObraData);
   if (currentHito === 'h1') content.innerHTML = renderH1(currentObraData);
   if (currentHito === 'h2') content.innerHTML = renderH2(currentObraData);
   if (currentHito === 'h3') content.innerHTML = renderH3(currentObraData);
@@ -576,7 +596,7 @@ initApp();
 
 
 // ---- Guardado explícito con comentario (todos los hitos editables) ----
-const HITO_NOMBRE_CORTO = { h1: 'H1 · Diagnóstico', h2: 'H2 · Sistema constructivo', h3: 'H3 · Compras' };
+const HITO_NOMBRE_CORTO = { h1: 'H1 · Diagnóstico', h2: 'H2 · Sistema constructivo', h3: 'H3 · Compras', pv: 'Resumen de postventa' };
 
 function abrirModalGuardarHito(hito) {
   const prev = document.getElementById('modalGuardarHito');
@@ -619,7 +639,8 @@ async function confirmarGuardarHito(hito) {
 async function guardarHitoConComentario(hito, comentario) {
   if (!currentObraData) return { ok: false, error: 'Sin obra' };
   let data, estado;
-  if (hito === 'h1') { data = collectH1(); }
+  if (hito === 'pv') { data = collectPV(); hito = 'h1'; }
+  else if (hito === 'h1') { data = collectH1(); }
   if (hito === 'h2') { data = collectH2(); estado = 'sistema_definido'; }
   if (hito === 'h3') { data = collectH3(); estado = 'compras_validadas'; }
   currentObraData[hito] = data;
