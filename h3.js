@@ -35,6 +35,7 @@ function h3Default() {
     perifericos: mergePerifericos([]),
     tipoColocacionId: h3TipoDefaultId(),
     tiposColocacion: [],
+    comprasExtra: '',
     costoCapataz: 150, costoAyudante: 75, cantAyudantes: 2,
     escaladores: mergeEscaladores([]),
     reductores: mergeReductores([]),
@@ -61,7 +62,8 @@ function mergeMateriales(obraMateriales) {
       // ni siquiera Gerencia. Se cambian desde ⚙ Precios y Materiales.
       unMt2: mm.unMt2,
       costoUn: mm.costoUn,
-      incluye: ex ? !!ex.incluye : false
+      incluye: ex ? !!ex.incluye : false,
+      nota: ex ? (ex.nota || '') : ''
     };
   });
   (obraMateriales || []).forEach(m => {
@@ -193,7 +195,8 @@ function renderH3(obra) {
   // lo que se está usando; el resto no hace ruido.
   const matFila = m => `
     <tr ${m._inactivo ? 'style="opacity:0.55;"' : ''}>
-      <td>${escapeHtml(m.insumo)}${m._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(m.proveedor || '')}${m.calculo ? ' · ' + escapeHtml(m.calculo) : ''}</div></td>
+      <td>${escapeHtml(m.insumo)}${m._inactivo ? ' <span class="small-note">(dado de baja del Maestro)</span>' : ''}<div class="small-note">${escapeHtml(m.proveedor || '')}${m.calculo ? ' · ' + escapeHtml(m.calculo) : ''}</div>
+        ${m.incluye ? `<input type="text" id="mat_nota_${m.id}" value="${escapeAttr(m.nota || '')}" placeholder="Comentario (medida, color, aclaración para compras…)" style="width:100%; margin-top:4px; font-size:12px;" onchange="refreshH3()">` : ''}</td>
       <td class="num">${m.unMt2}</td>
       <td>${escapeHtml(m.unidad || '')}</td>
       <td class="num">$${(parseFloat(m.costoUn) || 0).toFixed(2)}</td>
@@ -289,6 +292,10 @@ function renderH3(obra) {
     <div class="section">
       <div class="section-title">Materiales <span class="small-note" style="font-weight:400;">— abrí la categoría que necesites y tildá</span></div>
       ${materialesHtml}
+      <div class="field full" style="margin-top:14px;">
+        <label>Comentarios y compras fuera de lista</label>
+        <textarea id="h3_comprasExtra" style="min-height:90px;" placeholder="Materiales de una sola vez que no vale la pena cargar al Maestro (con cantidad y dónde comprarlos), aclaraciones generales del pedido, etc. Va en el PDF de compras que recibe el equipo." onchange="refreshH3()">${escapeHtml(d.comprasExtra || '')}</textarea>
+      </div>
       <div class="small-note" style="margin-top:10px;">Total materiales x Mt²: <strong>$${calc.costoMateriales.toFixed(2)}</strong></div>
       ${esGerencia ? `<div class="small-note" style="margin-top:6px;">Los precios y consumos no se editan acá: se cambian desde <span class="btn-ghost" style="padding:0;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span> y toda obra activa los toma automáticamente.</div>` : `<div class="small-note" style="margin-top:6px;">Los precios y parámetros los define Gerencia. Si algo está desactualizado, avisale a Gerencia.</div>`}
     </div>
@@ -436,7 +443,8 @@ function collectH3() {
     id: m.id, categoria: m.categoria, insumo: m.insumo, proveedor: m.proveedor, calculo: m.calculo, unidad: m.unidad,
     unMt2: m.unMt2,
     costoUn: m.costoUn,
-    incluye: document.getElementById(`mat_inc_${m.id}`) ? document.getElementById(`mat_inc_${m.id}`).checked : m.incluye
+    incluye: document.getElementById(`mat_inc_${m.id}`) ? document.getElementById(`mat_inc_${m.id}`).checked : m.incluye,
+    nota: document.getElementById(`mat_nota_${m.id}`) ? document.getElementById(`mat_nota_${m.id}`).value : (m.nota || '')
   }));
   const perifericos = prevPerifericos.map(p => {
     const cantidad = document.getElementById(`per_cant_${p.id}`) ? (parseFloat(val(`per_cant_${p.id}`)) || 0) : (parseFloat(p.cantidad) || 0);
@@ -461,6 +469,7 @@ function collectH3() {
     cliente: h3ClienteDesdeH1_(currentObraData) || prev.cliente,
     mt2: _mt2H1 > 0 ? _mt2H1 : (val('h3_mt2') || prev.mt2),
     materiales, perifericos, escaladores, reductores,
+    comprasExtra: (function(){ const e = document.getElementById('h3_comprasExtra'); return e ? e.value : (prev.comprasExtra || ''); })(),
     tiposColocacion: (function(){
       const hayTabla = (MAESTRO.tipos || []).some(t => document.getElementById('tc_inc_' + t.id));
       if (!hayTabla) return prev.tiposColocacion || (prev.tipoColocacionId ? [{ id: prev.tipoColocacionId, mt2: '' }] : []);
