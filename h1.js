@@ -68,6 +68,12 @@ const H1_PROBLEMAS_COMUNES = [
   '¿Precisa trabajo nocturno?'
 ];
 
+// Producto: string viejo ("Decking Ash 20x132") u objeto nuevo {nombre, desp}.
+function h1ProdNorm_(p) {
+  if (typeof p === 'string') return { nombre: p, desp: '' };
+  return { nombre: (p && p.nombre) || '', desp: (p && p.desp !== undefined) ? p.desp : '' };
+}
+
 // Normaliza una fila vieja (checkbox marcado) al formato nuevo (respuesta si/no).
 function h1NormRow_(row) {
   const r = Object.assign({}, row || {});
@@ -207,9 +213,16 @@ function renderH1(obra) {
           </div>
         </div>
         <div class="field full"><label>Tipo de producto/s <span class="small-note" style="font-weight:400;">(del catálogo — pueden ser varios; si la obra vino de una cotización ya están cargados)</span></label>
-          <div id="h1_productos_chips" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;">
-            ${(d.productos||[]).map((p,i)=>`<span class="estado-pill" style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(p)} <span style="cursor:pointer;font-weight:700;" onclick="h1QuitarProducto(${i})">✕</span></span>`).join('') || '<span class="small-note">Sin productos cargados.</span>'}
+          <div id="h1_productos_chips" style="display:flex;flex-direction:column;gap:6px;margin:6px 0;">
+            ${(d.productos||[]).map(h1ProdNorm_).map((p,i)=>`
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line,#555);border-radius:8px;padding:6px 10px;">
+                <span style="flex:1;">${escapeHtml(p.nombre)}</span>
+                <label class="small-note" style="white-space:nowrap;">Desperdicio %</label>
+                <input type="number" step="any" min="0" id="h1_prod_desp_${i}" value="${escapeAttr(p.desp)}" placeholder="10" style="width:70px;" title="% de desperdicio con el que se manda la madera a obra">
+                <span style="cursor:pointer;font-weight:700;" onclick="h1QuitarProducto(${i})">✕</span>
+              </div>`).join('') || '<span class="small-note">Sin productos cargados.</span>'}
           </div>
+          ${(d.productos||[]).length ? '<div class="small-note">El desperdicio queda declarado acá y sale en la lista de compras (madera a enviar a obra). Si la obra vino de una cotización, confirmalo igual: el fiscal es el que vio la obra.</div>' : ''}
           <div style="display:flex;gap:8px;">
             <input type="text" id="h1_producto_input" list="dlProductos" placeholder="Buscar en el catálogo o escribir libre…" style="flex:1;">
             <button type="button" class="btn-secondary" onclick="h1AgregarProducto()">＋ Agregar</button>
@@ -245,7 +258,7 @@ function renderH1(obra) {
       <div class="section-title">4 · Contraste con la venta <span class="small-note" style="font-weight:400;">— el corazón del diagnóstico: ¿lo vendido coincide con la realidad de la obra?</span></div>
       <div class="small-note" style="margin-bottom:10px;">
         Vendido: <b>${escapeAttr(d.mt2Franco || '—')} m²</b> (Franco) · Relevado: <b>${escapeAttr(d.mt2Relevados || '—')} m²</b>
-        ${(d.productos||[]).length ? '· Producto/s: ' + (d.productos||[]).map(escapeHtml).join(' · ') : ''}
+        ${(d.productos||[]).length ? '· Producto/s: ' + (d.productos||[]).map(h1ProdNorm_).map(p=>escapeHtml(p.nombre)).join(' · ') : ''}
       </div>
       ${checklistHtml(d.contrasteVenta, 'venta')}
     </div>
@@ -381,7 +394,10 @@ function collectH1() {
     mt2Franco: valS('h1_mt2Franco', prev.mt2Franco), mt2Relevados: valS('h1_mt2Relevados', prev.mt2Relevados),
     barrioPrivado: chipS('h1_barrioPrivado', prev.barrioPrivado), casaODepto: chipS('h1_casaODepto', prev.casaODepto),
     tipoProducto: prev.tipoProducto || '',
-    productos: (prev.productos || []).slice(),   // se manejan con h1AgregarProducto / h1QuitarProducto
+    productos: (prev.productos || []).map(h1ProdNorm_).map((p, i) => {
+      const e = document.getElementById('h1_prod_desp_' + i);
+      return { nombre: p.nombre, desp: e ? e.value : p.desp };
+    }),   // alta/baja con h1AgregarProducto / h1QuitarProducto
     tipoInstalacion: {
       revestimiento: chkS('h1_ti_revestimiento', prev.tipoInstalacion.revestimiento),
       revestimientoMt2: valS('h1_ti_revestimientoMt2', prev.tipoInstalacion.revestimientoMt2 || ''),
@@ -426,7 +442,7 @@ function h1AgregarProducto() {
   const v = (inp.value || '').trim();
   if (!v) return;
   const h = collectH1();
-  if (h.productos.indexOf(v) === -1) h.productos.push(v);
+  if (!h.productos.some(p => h1ProdNorm_(p).nombre === v)) h.productos.push({ nombre: v, desp: '' });
   currentObraData.h1 = h;
   hitoDirty.h1 = true;
   document.getElementById('hito-content').innerHTML = renderH1(currentObraData);
