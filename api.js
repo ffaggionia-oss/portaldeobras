@@ -176,6 +176,14 @@ const API = {
   async getLogsMaestro(tabla, token) {
     const res = await fetch(`${CONFIG.API_URL}?action=logsMaestro&tabla=${encodeURIComponent(tabla || '')}&token=${encodeURIComponent(token)}`);
     return res.json();
+  },
+
+  // Lee EN VIVO la planilla maestra de materiales y mano de obra (Google
+  // Sheet aparte, primera hoja). Sólo Gerencia. refresh=true fuerza
+  // relectura salteando el cache de 10 min del servidor.
+  async getPlanillaH3(token, refresh) {
+    const res = await fetch(`${CONFIG.API_URL}?action=getPlanillaH3&token=${encodeURIComponent(token)}${refresh ? '&refresh=1' : ''}`);
+    return res.json();
   }
 };
 
