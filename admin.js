@@ -94,9 +94,20 @@ function renderAdminContent() {
       Las obras que ya tenían un costo o margen guardado no se recalculan solas — quedan con el valor histórico.
     </div>
     <div class="section">
-      <div class="section-title">🔄 Sincronizar con la planilla de cálculo (${SYNC_PLANILLA.version})</div>
-      <div class="small-note">Compara el Maestro con la última planilla de Excel: agrega los ítems que falten, actualiza consumos y precios de los que ya existen, y te muestra el detalle ANTES de guardar nada. Los ítems que están en el Maestro pero no en la planilla no se tocan — solo se listan para que los revises.</div>
-      <button type="button" class="btn-primary" style="margin-top:10px;" onclick="previsualizarSyncPlanilla()">Comparar Maestro vs planilla</button>
+      <div class="section-title">🔄 Actualizar desde tu Excel maestro</div>
+      <div class="small-note">El Excel manda: editás la hoja de materiales y mano de obra directo en Google Sheets — nada de subir/bajar archivos ni tocar el portal para dar de alta o quitar un producto. "Leer del Excel en vivo" trae los datos actuales de esa hoja (cache de hasta 10 min; "Forzar relectura" lo salta). Compara contra el Maestro: agrega los ítems que falten, actualiza consumos y precios de los que ya existen, y te muestra el detalle ANTES de guardar nada. Los ítems que están en el Maestro pero no en el Excel no se tocan — solo se listan para que los revises.</div>
+      <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="btn-primary" onclick="leerPlanillaH3EnVivo_(false)">🔄 Leer del Excel en vivo</button>
+        <button type="button" class="btn-ghost" onclick="leerPlanillaH3EnVivo_(true)">Forzar relectura (saltea el cache)</button>
+        <button type="button" class="btn-primary" onclick="previsualizarSyncPlanilla()">Comparar Maestro vs Excel</button>
+      </div>
+      <div class="small-note" id="sync_planilla_status" style="margin-top:8px;">${PLANILLA_META ? '✓ ' + (PLANILLA_META.origen === 'vivo' ? 'Leído en vivo de la hoja "' + escapeHtml(PLANILLA_META.hoja) + '"' : 'Último archivo leído: ' + escapeHtml(PLANILLA_META.archivo)) + ' (' + PLANILLA_META.leidoEn.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ')' : 'Todavía no leíste el Excel en esta sesión.'}</div>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer; font-size:12px; color:var(--muted, #888);">O subir el .xlsx a mano (por si no podés acceder al Google Sheet)</summary>
+        <div style="margin-top:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input type="file" id="sync_planilla_file" accept=".xlsx,.xls" onchange="manejarArchivoExcelPlanilla_(this)">
+        </div>
+      </details>
       <div id="sync_planilla_out" style="margin-top:10px;"></div>
     </div>
     ${html}
@@ -401,135 +412,200 @@ async function guardarTablaAdmin(tabla) {
 
 
 // ============================================
-// 🔄 SINCRONIZACIÓN CON LA PLANILLA DE CÁLCULO
-// Dataset canónico tomado de "H3 Kokkai - Calculador de Instalaciones (9).xlsx".
-// Regla: la planilla manda en consumos (Un/Mt²) y precios; el Maestro
-// conserva sus IDs (las obras viejas no se rompen). Lo que falta se agrega,
-// lo que sobra en el Maestro NO se borra: solo se informa.
-// Los ítems con costoUn 0 quedan pendientes de precio (se completan acá mismo).
+// 🔄 ACTUALIZAR DESDE EL EXCEL MAESTRO (H3)
+// Antes esta sección tenía los datos de la planilla pegados a mano acá
+// (SYNC_PLANILLA), y había que editar código cada vez que cambiaba el Excel.
+// Ahora Gerencia sube el .xlsx del "Calculador de Instalaciones" directo en
+// el panel: se lee en el navegador con SheetJS (hoja "CALCULO"), se arma el
+// mismo plan de comparación de siempre, y se aplica con un click.
+// Regla: el Excel manda en consumos (Un/Mt²) y precios; el Maestro conserva
+// sus IDs (las obras viejas no se rompen). Lo que falta se agrega, lo que
+// sobra en el Maestro NO se borra: solo se informa.
 // ============================================
 
-const SYNC_PLANILLA = {
-  version: 'Planilla v9 · jul 2026',
-  tipos: [
-    { tipo: 'Imprimación de Muro Previo', rendimiento: 60, costoMt2: 5 },
-    { tipo: 'Colocación de Revestimiento', rendimiento: 15, costoMt2: 20 },
-    { tipo: 'Colocación de Decks Sobre Carpeta Directa', rendimiento: 15, costoMt2: 20 },
-    { tipo: 'Colocación de Decks + Estructura Galv./Madera', rendimiento: 8, costoMt2: 37.5 },
-    { tipo: 'Remoción Deck Existente', rendimiento: 60, costoMt2: 5 },
-    { tipo: 'Remoción Piso Existente', rendimiento: 33, costoMt2: 9.09 },
-    { tipo: 'Colocación Piso Pegado + Zocalos', rendimiento: 18.75, costoMt2: 16 },
-    { tipo: 'Colocación Piso Flotante + Zocalos', rendimiento: 21.43, costoMt2: 14 }
-  ],
-  materiales: [
-    // ---- Revestimientos ----
-    { categoria: 'Revestimientos', insumo: 'Perfil PGO 37 x 0,94 mm x 6,00 mts', proveedor: 'CMP / EnSeco', calculo: '', unMt2: 3, unidad: 'Mt/L', costoUn: 2.8 },
-    { categoria: 'Revestimientos', insumo: 'Perfil PGO 22 x 0,94 mm x 3,00 mts', proveedor: 'CMP / EnSeco', calculo: '', unMt2: 3, unidad: 'Mt/L', costoUn: 2.05 },
-    { categoria: 'Revestimientos', insumo: 'Perfil Madera Plástica 24x34x2400 mm (Alfajías)', proveedor: 'WoodPlast', calculo: '', unMt2: 3, unidad: 'Mt/L', costoUn: 1.4 },
-    { categoria: 'Revestimientos', insumo: 'Pino CCA 1x3', proveedor: 'Maderera Newton / Otros / Flavio', calculo: '', unMt2: 3, unidad: 'Mt/L', costoUn: 2 },
-    { categoria: 'Revestimientos', insumo: 'Pino CCA 2x2', proveedor: 'Maderera Newton / Otros / Flavio', calculo: '', unMt2: 3, unidad: 'Mt/L', costoUn: 2 },
-    { categoria: 'Revestimientos', insumo: 'Pino NO CCA 1/2 x 3', proveedor: 'Maderera Newton / Otros / Flavio', calculo: '', unMt2: 3, unidad: 'Mt/L', costoUn: 2 },
-    { categoria: 'Revestimientos', insumo: 'Tornillo Ø8 × 70 mm + Tarugo Nylon 8 (Par)', proveedor: 'Bulonera Tigre', calculo: '', unMt2: 3, unidad: 'Pares', costoUn: 0.03 },
-    { categoria: 'Revestimientos', insumo: 'Tornillo Ø8 × 50 mm + Tarugo Nylon 8 (Par)', proveedor: 'Bulonera Tigre', calculo: '', unMt2: 3, unidad: 'Pares', costoUn: 0.03 },
-    { categoria: 'Revestimientos', insumo: 'Tornillo KKTN Negro 5x40 mm (Madera-Madera)', proveedor: 'Rothoblaas', calculo: '', unMt2: 25, unidad: 'Unidades', costoUn: 0.15 },
-    { categoria: 'Revestimientos', insumo: 'Tornillo KKAN 5x40 mm (Madera-Metal)', proveedor: 'Rothoblaas', calculo: '', unMt2: 25, unidad: 'Unidades', costoUn: 0.3 },
-    { categoria: 'Revestimientos', insumo: 'Tornillo KKA AISI 410 5x40 mm (Acero Inoxidable)', proveedor: 'Rothoblaas', calculo: '', unMt2: 25, unidad: 'Unidades', costoUn: 0.3 },
-    { categoria: 'Revestimientos', insumo: 'Tornillo KKT A4 AISI 316 5x70 mm (Solo Vanos)', proveedor: 'Rothoblaas', calculo: 'Solo vanos', unMt2: 5, unidad: 'Unidades', costoUn: 0 },
-    { categoria: 'Revestimientos', insumo: 'Parker Deck 10x2 Torx Ruspert', proveedor: 'Bulonera Tigre', calculo: 'Solo vanos', unMt2: 4, unidad: 'Unidades', costoUn: 0.07 },
-    { categoria: 'Revestimientos', insumo: 'Tornillo SHS 3,5x30 mm (Madera-Madera)', proveedor: 'Rothoblaas', calculo: '', unMt2: 15, unidad: 'Unidades', costoUn: 0.05 },
-    { categoria: 'Revestimientos', insumo: 'Autoperforante c/Alas - Cabeza Avellanada 4x70', proveedor: 'Bulonera Tigre', calculo: '', unMt2: 15, unidad: 'Unidades', costoUn: 0.05 },
-    { categoria: 'Revestimientos', insumo: 'Tornillo SBS - Autoperforante c/ Alas — Cabeza Avellanada 4,2x25 Inox', proveedor: 'Rothoblaas', calculo: '', unMt2: 15, unidad: 'Unidades', costoUn: 0.05 },
-    { categoria: 'Revestimientos', insumo: 'Recuplast Techos (Pintura Imprimación Previa x Tacho)', proveedor: 'Pinturería Minuto', calculo: '', unMt2: 1, unidad: 'Kg', costoUn: 6.8 },
-    { categoria: 'Revestimientos', insumo: 'Grampas (cualquier tamaño)', proveedor: 'Colocador', calculo: 'Las provee el colocador', unMt2: 0, unidad: 'Unidades', costoUn: 0 },
-    { categoria: 'Revestimientos', insumo: 'Clip B1-1', proveedor: 'Thermory', calculo: '', unMt2: 18, unidad: 'Unidades', costoUn: 0.38 },
-    // ---- Cielo Raso ----
-    { categoria: 'Cielo Raso', insumo: 'Montante galvanizado — Cielorraso', proveedor: 'EnSeco', calculo: 'Cada 0,40 mt', unMt2: 3.25, unidad: 'Mt/L', costoUn: 0 },
-    { categoria: 'Cielo Raso', insumo: 'Solera galvanizada — Cielorraso', proveedor: 'EnSeco', calculo: 'Perímetro', unMt2: 1.28, unidad: 'Mt/L', costoUn: 0 },
-    { categoria: 'Cielo Raso', insumo: 'Autoperforante c/ Alas — Cabeza Tanque Galv. 1x1/2', proveedor: 'Bulonera Tigre', calculo: '', unMt2: 4, unidad: 'Unidades', costoUn: 0.05 },
-    // ---- Decks ----
-    { categoria: 'Decks', insumo: 'Autoperforante c/ Alas — Cabeza Hexagonal Galv. (especificar medida)', proveedor: 'Bulonera Tigre', calculo: '', unMt2: 15, unidad: 'Unidades', costoUn: 0.05 },
-    { categoria: 'Decks', insumo: 'Autoperforante c/ Alas — Cabeza Tanque Galv. (especificar medida)', proveedor: 'Bulonera Tigre', calculo: '', unMt2: 15, unidad: 'Unidades', costoUn: 0.05 },
-    { categoria: 'Decks', insumo: 'Fresado con Alas (Madera-Metal)', proveedor: 'Bulonera Tigre', calculo: '', unMt2: 15, unidad: 'Unidades', costoUn: 0.05 },
-    { categoria: 'Decks', insumo: 'PCG Galvanizado 80x40x15x1,6 mm — Viguetas', proveedor: 'En Seco / Mundo Hierro / CMP', calculo: 'Cada 0,40 mt', unMt2: 3, unidad: 'Mt/L', costoUn: 3.65 },
-    { categoria: 'Decks', insumo: 'PCG Galvanizado 80x40x15x1,6 mm — Perímetro', proveedor: 'En Seco / Mundo Hierro / CMP', calculo: 'Perímetro / Mt²', unMt2: 1.33, unidad: 'Mt/L', costoUn: 3.65 },
-    { categoria: 'Decks', insumo: 'PCG Galvanizado 80x40x15x1,6 mm — Patas', proveedor: 'En Seco / Mundo Hierro / CMP', calculo: '3,5 patas x Mt² (0,15 mt)', unMt2: 0.52, unidad: 'Mt/L', costoUn: 3.65 },
-    { categoria: 'Decks', insumo: 'PCG Galvanizado 80x40x15x1,6 mm — Bloqueos y desperdicio', proveedor: 'En Seco / Mundo Hierro / CMP', calculo: '2 × Espacio Interno', unMt2: 0.8, unidad: 'Mt/L', costoUn: 3.65 },
-    { categoria: 'Decks', insumo: 'Sistema Rothoblaas SUPM 95-130 mm + HEAD 2', proveedor: 'Rothoblaas', calculo: '3,5 patas x Mt²', unMt2: 3.5, unidad: 'Unidades', costoUn: 6 },
-    { categoria: 'Decks', insumo: 'Sistema Rothoblaas SUP CORRECT (Cuña)', proveedor: 'Rothoblaas', calculo: '3,5 patas x Mt²', unMt2: 3.5, unidad: 'Unidades', costoUn: 2.4 },
-    { categoria: 'Decks', insumo: 'Aluminio 20x60x1,5 mm Barra 6 mt/L — Contrapiso', proveedor: 'Perfiles de Aluminio', calculo: 'Cada 0,40 mt', unMt2: 3, unidad: 'Mt/L', costoUn: 6 },
-    { categoria: 'Decks', insumo: 'Clip Thermory T4 o PC Clips', proveedor: 'Thermory', calculo: '3 U. x Mt/l', unMt2: 25, unidad: 'Unidades', costoUn: 0.3 },
-    { categoria: 'Decks', insumo: 'Tornillo P/ Clip KKAN 4x30 mm', proveedor: 'Rothoblaas / Bulonera', calculo: '', unMt2: 25, unidad: 'Unidades', costoUn: 0.15 },
-    { categoria: 'Decks', insumo: 'Tornillo Sobre Madera KKA 5x40 mm', proveedor: 'Rothoblaas', calculo: '', unMt2: 25, unidad: 'Unidades', costoUn: 0.3 },
-    { categoria: 'Decks', insumo: 'Tornillo Autoperforante TEL-FIX Aguja 8x3 + Tarugo SX10', proveedor: 'Ferretería Industrial / Bulonera', calculo: '', unMt2: 40, unidad: 'Unidades', costoUn: 0.17 },
-    { categoria: 'Decks', insumo: 'Bulón Expansión M10 × 80 mm — Contrapiso', proveedor: 'Ferretería Industrial / Bulonera', calculo: 'Cada 1 mt — 24 U / 10 mt²', unMt2: 2.4, unidad: 'Unidades', costoUn: 0.5 },
-    { categoria: 'Decks', insumo: 'Bulón Expansión M10 × 80 mm', proveedor: 'Ferretería Industrial / Bulonera', calculo: '', unMt2: 7, unidad: 'Unidades', costoUn: 0.5 },
-    { categoria: 'Decks', insumo: 'Placa 100×100×5 mm acero estructural S235 (Pata)', proveedor: 'Mundo Hierro / CMP', calculo: '', unMt2: 3.5, unidad: 'Unidades', costoUn: 0.7 },
-    { categoria: 'Decks', insumo: 'PADS EPDM 100×100×3 mm Shore 60', proveedor: 'Ferretería Industrial / Bulonera', calculo: '', unMt2: 1.33, unidad: 'Unidades', costoUn: 2.25 },
-    { categoria: 'Decks', insumo: 'Cinta Butílica 40 mm', proveedor: 'Ferretería Industrial / Bulonera', calculo: '', unMt2: 2.5, unidad: 'Mt/L', costoUn: 0 },
-    { categoria: 'Decks', insumo: 'Goma Microporosa 5x45', proveedor: 'Nautigom', calculo: '', unMt2: 0.5, unidad: 'Mt/L', costoUn: 2.6 },
-    { categoria: 'Decks', insumo: 'Goma Para Galvanizado y Tabla', proveedor: 'Nautigom', calculo: '', unMt2: 1, unidad: 'Mt/L', costoUn: 0 },
-    { categoria: 'Decks', insumo: 'Esquinero ángulo reforzado zincado 50 x 50 mm', proveedor: 'En Seco / Mundo Hierro / CMP', calculo: '', unMt2: 3, unidad: 'Unidades', costoUn: 0 },
-    // ---- Pisos ----
-    { categoria: 'Pisos', insumo: 'Manta', proveedor: 'MercadoLibre', calculo: '', unMt2: 1, unidad: 'Mt²', costoUn: 2.21 },
-    { categoria: 'Pisos', insumo: 'Nylon 200 Micrones', proveedor: 'MercadoLibre', calculo: '', unMt2: 1, unidad: 'Mt²', costoUn: 1 },
-    { categoria: 'Pisos', insumo: 'Primer/Sellador', proveedor: 'Bona / Kekol', calculo: '', unMt2: 1, unidad: 'Kg', costoUn: 0 },
-    { categoria: 'Pisos', insumo: 'Pegamento Elástico Base Xilano (Bona 820 / Kekol 831 / Mapei)', proveedor: 'Bona / Kekol / Mapei', calculo: '1 kg/mt²', unMt2: 1, unidad: 'Kg', costoUn: 7.5 },
-    { categoria: 'Pisos', insumo: 'Zócalo 10 cm', proveedor: 'AlpaMat / Parky', calculo: '', unMt2: 0.7, unidad: 'Mt/L', costoUn: 6 },
-    { categoria: 'Pisos', insumo: 'Zócalo 15 cm', proveedor: 'AlpaMat / Parky', calculo: '', unMt2: 0.7, unidad: 'Mt/L', costoUn: 6 },
-    { categoria: 'Pisos', insumo: 'Zócalo 7 cm Curvo', proveedor: 'AlpaMat / Parky', calculo: '', unMt2: 0.7, unidad: 'Mt/L', costoUn: 6 },
-    { categoria: 'Pisos', insumo: 'Zócalo 7 cm Recto', proveedor: 'AlpaMat / Parky', calculo: '', unMt2: 0.7, unidad: 'Mt/L', costoUn: 6 }
-  ],
-  // Las molduras Moldumet van como periféricos: se compran por cantidad
-  // según la obra (no por m²) y el precio se completa cuando lo pasen.
-  perifericos: [
-    { insumo: 'Transporte a Obra', proveedor: 'Gargano', unidad: 'Viaje', costoUn: 250 },
-    { insumo: 'Andamios — 2 cuerpos/mes + 3 tablones', proveedor: 'Amaplac', unidad: 'Total', costoUn: 95 },
-    { insumo: 'Andamios — 3 cuerpos/mes + 3 tablones', proveedor: 'Amaplac', unidad: 'Total', costoUn: 120 },
-    { insumo: 'Andamios — 4 cuerpos/mes + 3 tablones', proveedor: 'Amaplac', unidad: 'Total', costoUn: 167 },
-    { insumo: 'Pintura Asfáltica al Agua Protex 400 Lt', proveedor: 'Protex', unidad: 'Tanque 400 lt', costoUn: 300 },
-    { insumo: 'Volquete', proveedor: '-', unidad: 'Unidades', costoUn: 70 },
-    { insumo: 'Silicona PU 40', proveedor: 'Unipega', unidad: 'Pomo', costoUn: 7 },
-    { insumo: 'Moldura A3070 10 mm Anodizado Dorado Mate', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A3071 10 mm Anodizado Bronce Mate', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A3080 10 mm Anodizado Plata Brillo', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A3090 10 mm Anodizado Dorado Brillo', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A2B12 12 mm Blanco', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A3BE12 12 mm Beige', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A3C12 12 mm Champagne', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A3G12 12 mm Gris', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A3M12 12 mm Marfil', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A23N12 12 mm Negro', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A307012 12 mm Anodizado Dorado Mate', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A307112 12 mm Anodizado Bronce Mate', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A308012 12 mm Anodizado Plata Brillo', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 },
-    { insumo: 'Moldura A309012 12 mm Anodizado Dorado Brillo', proveedor: 'Moldumet', unidad: 'Unidades', costoUn: 0 }
-  ],
-  escaladores: [
-    { condicion: 'Desarraigo', pct: 0.25 },
-    { condicion: 'Cieloraso con estructura', pct: 0.12 },
-    { condicion: 'Trabajo en Altura', pct: 0.12 },
-    { condicion: 'Acceso Difícil', pct: 0.10 },
-    { condicion: 'Trabajo Nocturno', pct: 0.15 },
-    { condicion: 'Extra Zona (3er Cordón)', pct: 0.08 },
-    { condicion: 'Diseño Complejo', pct: 0.10 },
-    { condicion: 'Obra < 20 mt²', pct: 0.25 },
-    { condicion: 'Obra < 40 mt²', pct: 0.15 }
-  ],
-  reductores: [
-    { condicion: 'Obra 200–300 mt²', pct: -0.08 },
-    { condicion: 'Obra 300–500 mt²', pct: -0.10 },
-    { condicion: 'Obra 500–1000 mt²', pct: -0.125 }
-  ],
-  segmentos: [
-    { nombre: 'PREMIUM +', margen: 0.50 },
-    { nombre: 'PREMIUM', margen: 0.45 },
-    { nombre: 'MEDIUM', margen: 0.40 },
-    { nombre: 'MÍNIMO', margen: 0.35 },
-    { nombre: 'MUY MÍNIMO', margen: 0.30 }
-  ]
-};
+let PLANILLA_ACTUAL = null; // { tipos, materiales, perifericos, escaladores, reductores, segmentos }
+let PLANILLA_META = null;   // { origen: 'vivo'|'archivo', archivo?, hoja, leidoEn }
 
-// Clave de match por tabla (para emparejar planilla ↔ Maestro sin depender de IDs)
+// Lee la planilla EN VIVO desde el Google Sheet maestro (mismo patrón que
+// el catálogo de madera Thermory): sin subir nada, Gerencia edita la hoja
+// directo y esto trae los datos actuales. forzar=true saltea el cache de
+// 10 min del servidor (action=getPlanillaH3&refresh=1).
+async function leerPlanillaH3EnVivo_(forzar) {
+  const status = document.getElementById('sync_planilla_status');
+  const out = document.getElementById('sync_planilla_out');
+  if (status) status.textContent = forzar ? 'Forzando relectura del Excel…' : 'Leyendo el Excel en vivo…';
+  if (out) out.innerHTML = '';
+  try {
+    const res = await API.getPlanillaH3(currentUser.token, forzar);
+    if (!res.ok) {
+      if (status) status.textContent = '⚠ ' + (res.error || 'No pude leer la planilla en vivo.');
+      return;
+    }
+    const datos = res.planilla || {};
+    const total = (datos.tipos || []).length + (datos.materiales || []).length + (datos.perifericos || []).length +
+      (datos.escaladores || []).length + (datos.reductores || []).length + (datos.segmentos || []).length;
+    if (!total) {
+      if (status) status.textContent = '⚠ Leí la hoja "' + (res.hoja || '') + '" pero no encontré las tablas esperadas (¿es la hoja correcta del Excel?).';
+      return;
+    }
+    PLANILLA_ACTUAL = datos;
+    PLANILLA_META = { origen: 'vivo', hoja: res.hoja || '', leidoEn: new Date() };
+    if (status) {
+      status.textContent = '✓ Leído en vivo de "' + (res.hoja || '') + '"' + (res.cache ? ' (cache, hasta 10 min de atraso)' : ' (recién ahora)') + ' — ' +
+        datos.materiales.length + ' materiales, ' + datos.perifericos.length + ' periféricos, ' +
+        datos.tipos.length + ' tipos, ' + datos.escaladores.length + ' escaladores, ' +
+        datos.reductores.length + ' reductores, ' + datos.segmentos.length + ' segmentos.';
+    }
+    previsualizarSyncPlanilla();
+  } catch (err) {
+    if (status) status.textContent = '⚠ Error de conexión al leer la planilla en vivo.';
+  }
+}
+
+function syncCelda_(v) { return String(v === null || v === undefined ? '' : v).trim(); }
+function syncHeader_(v) { return syncCelda_(v).toUpperCase(); }
+function syncNum_(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+// Recorre la matriz (array de filas) de la hoja "CALCULO" del Excel y arma
+// el mismo formato que usaba antes SYNC_PLANILLA. Busca las tablas por el
+// texto de sus encabezados, no por número de fila fijo, así aguanta que se
+// agreguen/saquen filas en el Excel de una versión a otra.
+function parseCalculoMatriz_(matriz) {
+  const buscarFila = (matcher, desde) => {
+    for (let i = desde || 0; i < matriz.length; i++) {
+      if (matcher(matriz[i] || [])) return i;
+    }
+    return -1;
+  };
+
+  // ---- Materiales (categoría "Molduras" se separa como periférico: se
+  // compran por cantidad según la obra, no por m², igual que antes) ----
+  const matHeaderIdx = buscarFila(r => syncHeader_(r[0]) === 'CATEGORÍA' && syncHeader_(r[1]) === 'INSUMO');
+  const materiales = [];
+  const moldurasComoPerifericos = [];
+  if (matHeaderIdx !== -1) {
+    for (let i = matHeaderIdx + 1; i < matriz.length; i++) {
+      const r = matriz[i] || [];
+      if (!syncCelda_(r[0]) || syncHeader_(r[0]).indexOf('TOTAL') === 0) break;
+      const categoria = syncCelda_(r[0]);
+      if (categoria.toUpperCase() === 'MOLDURAS') {
+        moldurasComoPerifericos.push({
+          insumo: syncCelda_(r[1]), proveedor: syncCelda_(r[2]),
+          unidad: syncCelda_(r[5]) || 'Unidades', costoUn: syncNum_(r[6])
+        });
+        continue;
+      }
+      materiales.push({
+        categoria, insumo: syncCelda_(r[1]), proveedor: syncCelda_(r[2]), calculo: syncCelda_(r[3]),
+        unMt2: syncNum_(r[4]), unidad: syncCelda_(r[5]), costoUn: syncNum_(r[6])
+      });
+    }
+  }
+
+  // ---- Periféricos y servicios ----
+  const perHeaderIdx = buscarFila(r => syncHeader_(r[0]) === 'INSUMO' && syncHeader_(r[2]) === 'PROVEEDOR', matHeaderIdx + 1);
+  const perifericos = moldurasComoPerifericos.slice();
+  if (perHeaderIdx !== -1) {
+    for (let i = perHeaderIdx + 1; i < matriz.length; i++) {
+      const r = matriz[i] || [];
+      if (!syncCelda_(r[0]) || syncHeader_(r[0]).indexOf('TOTAL') === 0) break;
+      perifericos.push({ insumo: syncCelda_(r[0]), proveedor: syncCelda_(r[2]), unidad: syncCelda_(r[5]), costoUn: syncNum_(r[6]) });
+    }
+  }
+
+  // ---- Tipos de colocación (mano de obra) ----
+  const tipHeaderIdx = buscarFila(r => syncHeader_(r[0]) === 'TIPO DE COLOCACIÓN', (perHeaderIdx === -1 ? matHeaderIdx : perHeaderIdx) + 1);
+  const tipos = [];
+  if (tipHeaderIdx !== -1) {
+    for (let i = tipHeaderIdx + 1; i < matriz.length; i++) {
+      const r = matriz[i] || [];
+      if (!syncCelda_(r[0]) || syncHeader_(r[0]).indexOf('COLOCADORES') === 0) break;
+      tipos.push({ tipo: syncCelda_(r[0]), rendimiento: syncNum_(r[1]), costoMt2: syncNum_(r[3]) });
+    }
+  }
+
+  // ---- Escaladores y Reductores (van en columnas paralelas, misma fila) ----
+  const condHeaderIdx = buscarFila(r => syncHeader_(r[0]) === 'CONDICIÓN', tipHeaderIdx + 1);
+  const escaladores = [], reductores = [];
+  if (condHeaderIdx !== -1) {
+    for (let i = condHeaderIdx + 1; i < matriz.length; i++) {
+      const r = matriz[i] || [];
+      const c0 = syncCelda_(r[0]), c4 = syncCelda_(r[4]);
+      const sigueEsc = c0 && syncHeader_(c0).indexOf('TOTAL') !== 0;
+      const sigueRed = c4 && syncHeader_(c4).indexOf('TOTAL') !== 0;
+      if (sigueEsc) escaladores.push({ condicion: c0, pct: syncNum_(r[1]) });
+      if (sigueRed) reductores.push({ condicion: c4, pct: syncNum_(r[5]) });
+      if (!sigueEsc && !sigueRed) break;
+    }
+  }
+
+  // ---- Segmentos de margen ----
+  const segHeaderIdx = buscarFila(r => syncHeader_(r[0]) === 'SEGMENTO', condHeaderIdx + 1);
+  const segmentos = [];
+  if (segHeaderIdx !== -1) {
+    for (let i = segHeaderIdx + 1; i < matriz.length; i++) {
+      const r = matriz[i] || [];
+      if (!syncCelda_(r[0])) break;
+      segmentos.push({ nombre: syncCelda_(r[0]), margen: syncNum_(r[2]) });
+    }
+  }
+
+  return { tipos, materiales, perifericos, escaladores, reductores, segmentos };
+}
+
+// Busca la hoja "CALCULO" (o algo parecido) dentro del Excel subido.
+function hojaCalculo_(workbook) {
+  const exacta = workbook.SheetNames.find(n => n.toUpperCase() === 'CALCULO');
+  if (exacta) return { hoja: workbook.Sheets[exacta], nombre: exacta, exacta: true };
+  const parecida = workbook.SheetNames.find(n => n.toUpperCase().indexOf('CALCULO') !== -1);
+  if (parecida) return { hoja: workbook.Sheets[parecida], nombre: parecida, exacta: false };
+  return { hoja: workbook.Sheets[workbook.SheetNames[0]], nombre: workbook.SheetNames[0], exacta: false };
+}
+
+// Dispara al elegir un archivo en el input. Lee el .xlsx en el navegador
+// (no sube nada a ningún lado todavía) y arma PLANILLA_ACTUAL.
+function manejarArchivoExcelPlanilla_(input) {
+  const status = document.getElementById('sync_planilla_status');
+  const out = document.getElementById('sync_planilla_out');
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (typeof XLSX === 'undefined') {
+    if (status) status.textContent = '⚠ No se pudo cargar el lector de Excel (SheetJS). Revisá tu conexión y volvé a intentar.';
+    return;
+  }
+  if (status) status.textContent = 'Leyendo "' + file.name + '"…';
+  if (out) out.innerHTML = '';
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const { hoja, nombre, exacta } = hojaCalculo_(wb);
+      const matriz = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: '', raw: true });
+      const datos = parseCalculoMatriz_(matriz);
+      const total = datos.tipos.length + datos.materiales.length + datos.perifericos.length + datos.escaladores.length + datos.reductores.length + datos.segmentos.length;
+      if (total === 0) {
+        if (status) status.textContent = '⚠ No encontré las tablas esperadas en la hoja "' + nombre + '". ¿Es el Excel del Calculador de Instalaciones (hoja "CALCULO")?';
+        return;
+      }
+      PLANILLA_ACTUAL = datos;
+      PLANILLA_META = { origen: 'archivo', archivo: file.name, hoja: nombre, leidoEn: new Date() };
+      if (status) {
+        status.textContent = '✓ "' + file.name + '"' + (exacta ? '' : ' (hoja "' + nombre + '")') + ' leído a las ' +
+          PLANILLA_META.leidoEn.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' — ' +
+          datos.materiales.length + ' materiales, ' + datos.perifericos.length + ' periféricos, ' +
+          datos.tipos.length + ' tipos, ' + datos.escaladores.length + ' escaladores, ' +
+          datos.reductores.length + ' reductores, ' + datos.segmentos.length + ' segmentos.';
+      }
+      previsualizarSyncPlanilla();
+    } catch (err) {
+      if (status) status.textContent = '⚠ No pude leer el archivo: ' + err.message;
+    }
+  };
+  reader.onerror = function () { if (status) status.textContent = '⚠ Error al leer el archivo.'; };
+  reader.readAsArrayBuffer(file);
+}
+
+// Clave de match por tabla (para emparejar Excel ↔ Maestro sin depender de IDs)
 const SYNC_KEYS = {
   tipos: it => syncNorm_(it.tipo),
   materiales: it => syncNorm_(it.categoria) + '|' + syncNorm_(it.insumo),
@@ -567,7 +643,7 @@ function calcularSyncPlanilla_() {
     existentes.forEach(it => { porClave[SYNC_KEYS[tabla](it)] = it; });
     const clavesPlanilla = {};
     const agregar = [], actualizar = [];
-    (SYNC_PLANILLA[tabla] || []).forEach(cn => {
+    ((PLANILLA_ACTUAL && PLANILLA_ACTUAL[tabla]) || []).forEach(cn => {
       const k = SYNC_KEYS[tabla](cn);
       clavesPlanilla[k] = true;
       const ex = porClave[k];
@@ -590,6 +666,7 @@ function calcularSyncPlanilla_() {
 function previsualizarSyncPlanilla() {
   const out = document.getElementById('sync_planilla_out');
   if (!ADMIN_MAESTRO) { out.innerHTML = '<span class="small-note">Esperá a que cargue el Maestro y probá de nuevo.</span>'; return; }
+  if (!PLANILLA_ACTUAL) { out.innerHTML = '<span class="small-note">Primero subí el Excel con el botón de arriba.</span>'; return; }
   const plan = calcularSyncPlanilla_();
   const nombres = { tipos: 'Tipos de colocación', materiales: 'Materiales', perifericos: 'Periféricos', escaladores: 'Escaladores', reductores: 'Reductores', segmentos: 'Segmentos de margen' };
   let totalCambios = 0;
