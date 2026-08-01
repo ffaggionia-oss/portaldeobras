@@ -206,6 +206,17 @@ async function goHome() {
   renderHome();
 }
 
+// Filtro del listado principal: 'todas' | 'obra' | 'pedido_material'.
+// Separa las obras reales (con instalación) de los pedidos de solo
+// material (sin instalación, código PD-xxxx) para que nunca se mezclen
+// de un vistazo. Se mantiene en memoria mientras dura la sesión.
+let homeFiltroTipo = 'todas';
+
+function setHomeFiltro(tipo) {
+  homeFiltroTipo = tipo;
+  renderHome();
+}
+
 async function renderHome() {
   const app = document.getElementById('app');
   const puedeCrear = currentUser.rol !== 'colocador';
@@ -217,6 +228,11 @@ async function renderHome() {
         ${puedeCrear ? `<button class="btn-secondary" onclick="openNuevaPostventaModal()">🔧 Nueva postventa</button>` : ''}
         ${puedeCrear ? `<button class="btn-primary" onclick="openNuevaObraModal()">+ Nueva obra</button>` : ''}
       </div>
+    </div>
+    <div class="filtro-tipo-tabs" style="display:flex; gap:6px; margin:2px 0 14px; flex-wrap:wrap;">
+      <button class="btn-secondary ${homeFiltroTipo==='todas'?'activo':''}" onclick="setHomeFiltro('todas')">Todas</button>
+      <button class="btn-secondary ${homeFiltroTipo==='obra'?'activo':''}" onclick="setHomeFiltro('obra')">🏗️ Obras</button>
+      <button class="btn-secondary ${homeFiltroTipo==='pedido_material'?'activo':''}" onclick="setHomeFiltro('pedido_material')">📦 Pedidos de material</button>
     </div>
     <div id="obrasList"><div class="empty-state">Cargando...</div></div>
   `;
@@ -244,11 +260,17 @@ async function renderHome() {
       return;
     }
 
-    const activas = res.obras.filter(o => o.estado !== 'cerrada').sort((a, b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion));
-    const archivadas = res.obras.filter(o => o.estado === 'cerrada').sort((a, b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion));
+    // El filtro no toca postventas (siempre visibles): solo distingue entre
+    // obras con instalación (tipo 'obra' o vacío) y pedidos de solo material
+    // (tipo 'pedido_material').
+    const obrasFiltradas = homeFiltroTipo === 'todas' ? res.obras
+      : res.obras.filter(o => o.tipo === 'postventa' || (o.tipo || 'obra') === homeFiltroTipo);
+
+    const activas = obrasFiltradas.filter(o => o.estado !== 'cerrada').sort((a, b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion));
+    const archivadas = obrasFiltradas.filter(o => o.estado === 'cerrada').sort((a, b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion));
 
     let html = activas.length === 0
-      ? `<div class="empty-state"><div class="big">No hay obras activas</div><p>Todas las obras están archivadas, o todavía no creaste ninguna.</p></div>`
+      ? `<div class="empty-state"><div class="big">No hay obras activas</div><p>${homeFiltroTipo !== 'todas' ? 'No hay resultados con este filtro.' : 'Todas las obras están archivadas, o todavía no creaste ninguna.'}</p></div>`
       : activas.map(renderObraCard).join('');
 
     html += `
@@ -284,12 +306,13 @@ async function renderHome() {
 }
 
 function renderObraCard(o) {
+  const esPedido = o.tipo === 'pedido_material';
   return `
     <div class="obra-card" onclick="openObra('${o.obraId}')">
       <div>
-        <div class="nombre">${o.tipo === 'postventa' ? '🔧 ' : ''}${escapeHtml(o.cliente)} ${o.codigo ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--paper-dim);">· ${escapeHtml(o.codigo)}</span>` : ''}</div>
-        <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}</div>
-        ${o.tipo === 'postventa' ? '' : renderProgresoDots(o.progreso)}
+        <div class="nombre">${o.tipo === 'postventa' ? '🔧 ' : ''}${esPedido ? '📦 ' : ''}${escapeHtml(o.cliente)} ${o.codigo ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--paper-dim);">· ${escapeHtml(o.codigo)}</span>` : ''}</div>
+        <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}${esPedido ? ' · Pedido de material — sin instalación' : ''}</div>
+        ${(o.tipo === 'postventa' || esPedido) ? '' : renderProgresoDots(o.progreso)}
       </div>
       <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
     </div>
@@ -460,9 +483,11 @@ function renderObraView() {
         <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
         ${o.codigo ? `<span class="sub" style="font-family:var(--font-mono);">${escapeHtml(o.codigo)}</span>` : ''}
         ${o.tipo === 'postventa' ? '<span class="estado-pill">🔧 Postventa</span>' : ''}
-        ${o.tipo !== 'postventa' && currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="openNuevaPostventaModal('${o.obraId}','${escapeAttr(o.cliente)}')">🔧 Crear postventa</span>` : ''}
+        ${o.tipo === 'pedido_material' ? '<span class="estado-pill">📦 Pedido de material — NO es una obra</span>' : ''}
+        ${o.tipo !== 'postventa' && o.tipo !== 'pedido_material' && currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="openNuevaPostventaModal('${o.obraId}','${escapeAttr(o.cliente)}')">🔧 Crear postventa</span>` : ''}
         ${currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="eliminarObraActual()">🗑 Eliminar obra</span>` : ''}
       </div>
+      ${o.direccion ? `<div class="sub" style="margin-top:4px;">📍 ${o.mapsUrl ? `<a href="${escapeAttr(o.mapsUrl)}" target="_blank" rel="noopener">${escapeHtml(o.direccion)}</a>` : escapeHtml(o.direccion)}${o.telefono ? ` · ☎ ${escapeHtml(o.telefono)}` : ''}</div>` : ''}
     </div>
     ${o.estado === 'cerrada' ? `<div class="obra-finalizada-banner">✓ Esta obra está marcada como terminada y archivada.</div>` : ''}
     ${renderStepperCompleto(o)}
@@ -672,6 +697,43 @@ async function guardarH3ConComentario(comentario) {
 
 
 // ============================================
+// 📋 COTIZACIÓN DE ORIGEN — panel de solo lectura para Compras/PM/Gerencia
+// (nunca Colocador) con TODO lo relevante de la cotización que dio origen
+// a esta obra o pedido: alcance, instalación, escaladores/reductores,
+// envío, estudio de arquitectura y contacto. NUNCA incluye rentabilidad
+// ni comisión de Kokkai — eso vive exclusivamente en H4 (solo Gerencia).
+// ============================================
+function renderCotOrigen(cot) {
+  if (!cot) return '';
+  const filas = [];
+  filas.push(['Cliente', escapeHtml(cot.clienteNombre || '—')]);
+  filas.push(['Vendedor', escapeHtml(cot.vendedor || '—')]);
+  if (cot.total !== undefined && cot.total !== null) filas.push(['Total cotizado', 'USD ' + Number(cot.total).toFixed(2)]);
+  if (cot.mt2) filas.push(['Superficie', cot.mt2 + ' m²']);
+  if (cot.tipoInstalacion) filas.push(['Tipo de colocación', escapeHtml(cot.tipoInstalacion)]);
+  if (cot.contacto) filas.push(['Contacto', escapeHtml(cot.contacto)]);
+  if (cot.telefono) filas.push(['Teléfono', '<a style="text-decoration:none;color:inherit;" target="_blank" href="' + escapeAttr(waUrl(cot.telefono)) + '">' + escapeHtml(cot.telefono) + '</a>']);
+  if (cot.direccionObra) filas.push(['Dirección de la obra', '<a style="text-decoration:none;color:inherit;" target="_blank" href="https://www.google.com/maps/search/' + encodeURIComponent(cot.direccionObra) + '">' + escapeHtml(cot.direccionObra) + '</a>']);
+  if (cot.estudioArq) filas.push(['Estudio de arquitectura', escapeHtml(cot.estudioArq) + (cot.comisionArq ? ' (comisión ' + (cot.comisionArqPct || 5) + '%)' : '')]);
+  if (cot.condPago) filas.push(['Condición de pago', escapeHtml(cot.condPago)]);
+  if (cot.lugarEnt) filas.push(['Lugar de entrega', escapeHtml(cot.lugarEnt)]);
+  if (cot.plazoEnt) filas.push(['Plazo de entrega', escapeHtml(cot.plazoEnt)]);
+  if (cot.transEnt) filas.push(['Transporte', escapeHtml(cot.transEnt)]);
+  if (cot.escaladores && cot.escaladores.length) filas.push(['Ampliaciones aplicadas', cot.escaladores.map(e => escapeHtml(e.nombre) + ' (+' + Math.round(e.pct*1000)/10 + '%)').join(' · ')]);
+  if (cot.reductores && cot.reductores.length) filas.push(['Reducciones aplicadas', cot.reductores.map(r => escapeHtml(r.nombre) + ' (' + Math.round(r.pct*1000)/10 + '%)').join(' · ')]);
+  if (cot.notas) filas.push(['Alcance / notas', escapeHtml(cot.notas).replace(/\n/g,'<br>')]);
+  const filasHtml = filas.map(([k,v]) => `<tr><td style="padding:4px 10px 4px 0;color:var(--paper-dim,#999);white-space:nowrap;vertical-align:top;font-size:11.5px;">${k}</td><td style="padding:4px 0;font-size:12.5px;">${v}</td></tr>`).join('');
+  const items = (cot.items || []).map(it => `<div class="small-note">• ${escapeHtml(it.desc || '')}${it.medidas && it.medidas !== '—' ? ' ' + escapeHtml(it.medidas) : ''} — ${escapeHtml(String(it.cant || ''))} ${escapeHtml(it.u || '')}</div>`).join('');
+  return `
+    <div class="section">
+      <div class="section-title">📋 Cotización de origen — ${escapeHtml(cot.id || '')}</div>
+      <div class="small-note" style="margin-bottom:8px;">Solo lectura. Rentabilidad y comisión de Kokkai no se muestran acá — viven exclusivamente en Financiero (H4, solo Gerencia).</div>
+      <table style="border-collapse:collapse;">${filasHtml}</table>
+      ${items ? `<div style="margin-top:10px;">${items}</div>` : ''}
+    </div>`;
+}
+
+// ============================================
 // 💬 CONVERSACIÓN DE LA OBRA — hilo central de comunicación.
 // Acá viven las idas y vueltas, cambios y confirmaciones. Los mails
 // que salen son solo notificaciones de lo que pasa en este hilo.
@@ -708,7 +770,8 @@ function renderChatObra(obra) {
   if (F('contacto')) chips.push('<span class="estado-pill">👤 ' + escapeHtml(F('contacto')) + '</span>');
   if (F('telefono')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" title="Escribir por WhatsApp" href="' + escapeAttr(waUrl(F('telefono'))) + '">💬 ' + escapeHtml(F('telefono')) + '</a>');
   if (h1f.estudio) chips.push('<span class="estado-pill">📐 ' + escapeHtml(h1f.estudio) + (h1f.telefonoArquitecto ? ' · <a style="text-decoration:none;color:inherit;" target="_blank" title="Escribir por WhatsApp" href="' + escapeAttr(waUrl(h1f.telefonoArquitecto)) + '">💬 ' + escapeHtml(h1f.telefonoArquitecto) + '</a>' : '') + '</span>');
-  if (F('direccion')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" href="https://www.google.com/maps/search/' + encodeURIComponent(F('direccion')) + '">📍 ' + escapeHtml(F('direccion')) + '</a>');
+  const direccionMostrar = h1f.direccionObra || F('direccion');
+  if (direccionMostrar) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" href="https://www.google.com/maps/search/' + encodeURIComponent(direccionMostrar) + '">📍 ' + escapeHtml(direccionMostrar) + '</a>');
   if (F('email')) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" href="mailto:' + escapeAttr(F('email')) + '">✉ ' + escapeHtml(F('email')) + '</a>');
   if (obra.carpetaUrl) chips.push('<a class="estado-pill" style="text-decoration:none;color:inherit;" target="_blank" title="Todo lo de esta obra se guarda acá (fotos, planos, remitos, facturas, compras, informes, entregables)" href="' + escapeAttr(obra.carpetaUrl) + '">📂 Carpeta Drive</a>');
   const accesos = [];
@@ -745,6 +808,7 @@ function renderChatObra(obra) {
         <span style="flex:1"></span>${accesos.join('')}
       </div>
     </div>
+    ${renderCotOrigen(obra.cotOrigen)}
     <div class="section">
       <div class="section-title">📷 Fotos y planos ${obra.fotos && obra.fotos.length ? '(' + obra.fotos.length + ')' : ''} <span class="btn-ghost" style="font-weight:400;" onclick="switchHito('fotos')">ver todas / subir →</span></div>
       ${tiraFotos}
