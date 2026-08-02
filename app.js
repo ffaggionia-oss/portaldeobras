@@ -706,7 +706,7 @@ async function guardarH3ConComentario(comentario) {
 function renderCotOrigen(cot) {
   if (!cot) return '';
   const filas = [];
-  filas.push(['Cliente', escapeHtml(cot.clienteNombre || '—')]);
+  filas.push(['Cliente', cot.clienteNombre ? escapeHtml(cot.clienteNombre) : (cot.nombreObra ? '<i>' + escapeHtml(cot.nombreObra) + ' (sin comitente confirmado)</i>' : '—')]);
   filas.push(['Vendedor', escapeHtml(cot.vendedor || '—')]);
   if (cot.total !== undefined && cot.total !== null) filas.push(['Total cotizado', 'USD ' + Number(cot.total).toFixed(2)]);
   if (cot.mt2) filas.push(['Superficie', cot.mt2 + ' m²']);
@@ -714,7 +714,7 @@ function renderCotOrigen(cot) {
   if (cot.contacto) filas.push(['Contacto', escapeHtml(cot.contacto)]);
   if (cot.telefono) filas.push(['Teléfono', '<a style="text-decoration:none;color:inherit;" target="_blank" href="' + escapeAttr(waUrl(cot.telefono)) + '">' + escapeHtml(cot.telefono) + '</a>']);
   if (cot.direccionObra) filas.push(['Dirección de la obra', '<a style="text-decoration:none;color:inherit;" target="_blank" href="https://www.google.com/maps/search/' + encodeURIComponent(cot.direccionObra) + '">' + escapeHtml(cot.direccionObra) + '</a>']);
-  if (cot.estudioArq) filas.push(['Estudio de arquitectura', escapeHtml(cot.estudioArq) + (cot.comisionArq ? ' (comisión ' + (cot.comisionArqPct || 5) + '%)' : '')]);
+  if (cot.estudioArq) filas.push(['Estudio de arquitectura', escapeHtml(cot.estudioArq)]);
   if (cot.condPago) filas.push(['Condición de pago', escapeHtml(cot.condPago)]);
   if (cot.lugarEnt) filas.push(['Lugar de entrega', escapeHtml(cot.lugarEnt)]);
   if (cot.plazoEnt) filas.push(['Plazo de entrega', escapeHtml(cot.plazoEnt)]);
