@@ -354,7 +354,34 @@ function hitoCompleto(obra, hito) {
 }
 
 function estadoLabel(e) {
-  return { diagnostico: 'Diagnóstico', sistema_definido: 'Sistema definido', compras_validadas: 'Compras validadas', en_obra: 'En obra', cerrada: 'Terminada' }[e] || e;
+  return { diagnostico: 'Diagnóstico', sistema_definido: 'Sistema definido', compras_validadas: 'Compras validadas', en_obra: '🟢 En obra', cerrada: 'Terminada' }[e] || e;
+}
+
+// ---- Marcar obra como iniciada (arrancó en el sitio) ----
+// Sólo tiene sentido después de H3 (compras validadas): es la primera vez
+// que alguien confirma que los colocadores ya están trabajando en el sitio.
+function puedeMarcarObraIniciada(o) {
+  if (!o || o.tipo === 'postventa' || o.tipo === 'pedido_material') return false;
+  if (currentUser.rol === 'colocador' || currentUser.rol === 'ventas') return false;
+  return o.estado === 'compras_validadas' && hitoCompleto(o, 'h3');
+}
+
+async function marcarObraIniciada() {
+  if (!currentObraData) return;
+  if (!confirm('¿Marcar "' + currentObraData.cliente + '" como obra iniciada? Esto confirma que los colocadores ya arrancaron en el sitio.')) return;
+  setSaveStatus('Guardando...', '');
+  try {
+    const res = await API.updateEstado(currentObraData.obraId, 'en_obra', currentUser.token);
+    if (res.ok) {
+      currentObraData.estado = 'en_obra';
+      renderObraView();
+      setSaveStatus('✓ Guardado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}), 'ok');
+    } else {
+      setSaveStatus('Error al guardar: ' + res.error, 'error');
+    }
+  } catch (err) {
+    setSaveStatus('Error de conexión', 'error');
+  }
 }
 
 // Secuencia de hitos "de progreso" (excluye Fotos, que no es un hito secuencial),
@@ -490,6 +517,7 @@ function renderObraView() {
       ${o.direccion ? `<div class="sub" style="margin-top:4px;">📍 ${o.mapsUrl ? `<a href="${escapeAttr(o.mapsUrl)}" target="_blank" rel="noopener">${escapeHtml(o.direccion)}</a>` : escapeHtml(o.direccion)}${o.telefono ? ` · ☎ ${escapeHtml(o.telefono)}` : ''}</div>` : ''}
     </div>
     ${o.estado === 'cerrada' ? `<div class="obra-finalizada-banner">✓ Esta obra está marcada como terminada y archivada.</div>` : ''}
+    ${puedeMarcarObraIniciada(o) ? `<div class="obra-iniciar-banner no-print"><span>📦 Compras validadas — falta confirmar si los colocadores ya arrancaron en el sitio.</span><button type="button" class="btn-iniciar-obra" onclick="marcarObraIniciada()">🟢 Marcar obra como iniciada</button></div>` : ''}
     ${renderStepperCompleto(o)}
     <div class="hito-tabs">
       ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''} ${hitoCompleto(o, h)?'completo':'pendiente'}" onclick="switchHito('${h}')">${HITO_LABELS[h]}</div>`).join('')}
