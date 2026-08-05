@@ -88,7 +88,7 @@ function h1Default() {
   return {
     cliente: '', colocador: '', fechaVisita: '', direccion: '',
     contacto: '', telefono: '', email: '', estudio: '', telefonoArquitecto: '',
-    mt2Franco: '', mt2Relevados: '', barrioPrivado: '', casaODepto: '', tipoProducto: '', productos: [],
+    mt2Franco: '', mt2Relevados: '', alturaDesdePiso: 2, barrioPrivado: '', casaODepto: '', tipoProducto: '', productos: [],
     tipoInstalacion: { revestimiento: false, revestimientoMt2: '', deck: false, deckMt2: '', pisos: false, pisosMt2: '', sauna: false, saunaMt2: '', otro: false, otroEspecificar: '' },
     interiorExterior: '',
     contrasteVenta: H1_CONTRASTE_VENTA.map(item => ({ item, respuesta: '', nota: '' })),
@@ -202,6 +202,7 @@ function renderH1(obra) {
         </div>
         <div class="field"><label>Mt² (Franco)</label><input type="number" id="h1_mt2Franco" value="${escapeAttr(d.mt2Franco)}"></div>
         <div class="field"><label>Mt² relevados</label><input type="number" id="h1_mt2Relevados" value="${escapeAttr(d.mt2Relevados)}"></div>
+        <div class="field"><label>Altura desde piso (cm)</label><input type="number" step="any" id="h1_alturaDesdePiso" value="${escapeAttr(d.alturaDesdePiso !== undefined && d.alturaDesdePiso !== '' ? d.alturaDesdePiso : 2)}"></div>
         <div class="field"><label>¿Barrio privado?</label>
           <div class="radio-group" id="h1_barrioPrivado" data-value="${escapeAttr(d.barrioPrivado)}">
             ${['Sí','No'].map(v => `<div class="radio-chip ${d.barrioPrivado===v?'selected':''}" data-val="${v}">${v}</div>`).join('')}
@@ -217,12 +218,13 @@ function renderH1(obra) {
             ${(d.productos||[]).map(h1ProdNorm_).map((p,i)=>`
               <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line,#555);border-radius:8px;padding:6px 10px;">
                 <span style="flex:1;">${escapeHtml(p.nombre)}</span>
-                <label class="small-note" style="white-space:nowrap;">Desperdicio %</label>
-                <input type="number" step="any" min="0" id="h1_prod_desp_${i}" value="${escapeAttr(p.desp)}" placeholder="10" style="width:70px;" title="% de desperdicio con el que se manda la madera a obra">
+                <span class="small-note" style="white-space:nowrap;" title="Desperdicio declarado en el presupuesto — no se edita acá">
+                  Desperdicio: <b>${p.desp !== '' && p.desp !== undefined && p.desp !== null ? '+' + escapeHtml(p.desp) + '%' : 'sin declarar en el presupuesto'}</b>
+                </span>
                 <span style="cursor:pointer;font-weight:700;" onclick="h1QuitarProducto(${i})">✕</span>
               </div>`).join('') || '<span class="small-note">Sin productos cargados.</span>'}
           </div>
-          ${(d.productos||[]).length ? '<div class="small-note">El desperdicio queda declarado acá y sale en la lista de compras (madera a enviar a obra). Si la obra vino de una cotización, confirmalo igual: el fiscal es el que vio la obra.</div>' : ''}
+          ${(d.productos||[]).length ? '<div class="small-note">El % de desperdicio viene del presupuesto y sale en la lista de compras (madera a enviar a obra). No se modifica desde acá — si está mal, hay que corregirlo en la cotización de origen.</div>' : ''}
           <div style="display:flex;gap:8px;">
             <input type="text" id="h1_producto_input" list="dlProductos" placeholder="Buscar en el catálogo o escribir libre…" style="flex:1;">
             <button type="button" class="btn-secondary" onclick="h1AgregarProducto()">＋ Agregar</button>
@@ -392,12 +394,14 @@ function collectH1() {
     email: valS('h1_email', prev.email || ''), estudio: valS('h1_estudio', prev.estudio || ''),
     telefonoArquitecto: valS('h1_telefonoArquitecto', prev.telefonoArquitecto || ''),
     mt2Franco: valS('h1_mt2Franco', prev.mt2Franco), mt2Relevados: valS('h1_mt2Relevados', prev.mt2Relevados),
+    alturaDesdePiso: valS('h1_alturaDesdePiso', prev.alturaDesdePiso !== undefined && prev.alturaDesdePiso !== '' ? prev.alturaDesdePiso : 2),
     barrioPrivado: chipS('h1_barrioPrivado', prev.barrioPrivado), casaODepto: chipS('h1_casaODepto', prev.casaODepto),
     tipoProducto: prev.tipoProducto || '',
-    productos: (prev.productos || []).map(h1ProdNorm_).map((p, i) => {
-      const e = document.getElementById('h1_prod_desp_' + i);
-      return { nombre: p.nombre, desp: e ? e.value : p.desp };
-    }),   // alta/baja con h1AgregarProducto / h1QuitarProducto
+    // ★ El desperdicio NUNCA se edita desde H1 — viene declarado del
+    // presupuesto (o queda "sin declarar" si la obra no vino de una
+    // cotización) y se conserva tal cual. Sólo cambia el listado de
+    // productos (alta/baja) con h1AgregarProducto / h1QuitarProducto.
+    productos: (prev.productos || []).map(h1ProdNorm_),
     tipoInstalacion: {
       revestimiento: chkS('h1_ti_revestimiento', prev.tipoInstalacion.revestimiento),
       revestimientoMt2: valS('h1_ti_revestimientoMt2', prev.tipoInstalacion.revestimientoMt2 || ''),
