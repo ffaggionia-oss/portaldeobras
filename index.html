@@ -159,8 +159,8 @@
   }
   .estado-diagnostico { background: #4a4234; color: var(--warn); }
   .estado-sistema_definido { background: #3a4456; color: #8aa6d4; }
-  .estado-compras_validadas { background: #3a4a3e; color: var(--ok); }
-  .estado-en_obra { background: #4a3a2a; color: var(--rust-bright); }
+  .estado-compras_validadas { background: #4a3a2a; color: var(--rust-bright); }
+  .estado-en_obra { background: #3a4a3e; color: var(--ok); }
   .estado-cerrada { background: #333; color: #999; }
 
   .empty-state {
@@ -285,6 +285,33 @@
     padding: 8px 12px;
     margin-bottom: 18px;
   }
+  .obra-iniciar-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--rust-bright);
+    background: rgba(224,122,63,0.10);
+    border: 1px solid var(--rust-bright);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+  }
+  .btn-iniciar-obra {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 13px;
+    color: #1c1b19;
+    background: var(--ok);
+    border: none;
+    border-radius: 4px;
+    padding: 8px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-iniciar-obra:hover { filter: brightness(1.08); }
 
   /* ---- Stepper compacto (tarjeta de obra en la lista) ---- */
   .stepper-compact { display: flex; align-items: center; gap: 0; margin-top: 8px; }
