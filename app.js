@@ -305,6 +305,17 @@ async function renderHome() {
   }
 }
 
+// ★ Banderita compacta para el listado principal — mismo criterio que en
+// calendario.js (0 abiertas => no se dibuja nada). Se repite acá (no se
+// comparte archivo) porque calendario.js no siempre está cargado.
+function bandBadgeObraCard_(banderas) {
+  if (!banderas || !banderas.abiertas) return '';
+  const urg = banderas.urgenciaMax || 'media';
+  const vencidaCls = banderas.vencidas ? ' bandera-vencida' : '';
+  const emoji = urg === 'alta' ? '🔴' : (urg === 'baja' ? '🟢' : '🟡');
+  return `<span class="bandera-badge bandera-${urg}${vencidaCls}" title="${banderas.abiertas} alerta(s) abierta(s)">${emoji} ${banderas.abiertas}</span>`;
+}
+
 function renderObraCard(o) {
   const esPedido = o.tipo === 'pedido_material';
   return `
@@ -314,7 +325,10 @@ function renderObraCard(o) {
         <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}${esPedido ? ' · Pedido de material — sin instalación' : ''}</div>
         ${(o.tipo === 'postventa' || esPedido) ? '' : renderProgresoDots(o.progreso)}
       </div>
-      <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        ${bandBadgeObraCard_(o.banderas)}
+        <div class="estado-pill estado-${o.estado}">${estadoLabel(o.estado)}</div>
+      </div>
     </div>
   `;
 }
@@ -424,6 +438,97 @@ function renderStepperCompleto(obra) {
   </div>`;
 }
 
+// ============================================
+// 🚩 ALERTAS / BANDERITAS — panel dentro de cada obra
+// ============================================
+function renderAlertasPanel_(o) {
+  const alertas = o.alertas || [];
+  const abiertas = alertas.filter(a => a.estado === 'abierta');
+  const resueltas = alertas.filter(a => a.estado !== 'abierta');
+  return `
+  <div class="section alertas-panel no-print">
+    <div class="section-title">
+      🚩 Alertas${abiertas.length ? ` (${abiertas.length} abierta${abiertas.length===1?'':'s'})` : ''}
+      <span class="btn-ghost" style="float:right;" onclick="abrirModalNuevaAlerta('${o.obraId}')">+ Marcar alerta</span>
+    </div>
+    ${abiertas.length === 0 ? '<div class="small-note">Sin alertas abiertas en esta obra.</div>' : abiertas.map(renderAlertaItem_).join('')}
+    ${resueltas.length ? `
+      <div class="archive-toggle" id="alertasResueltasToggle" onclick="toggleColapsable('alertasResueltasList','alertasResueltasToggle')" style="margin-top:8px;">
+        <span class="arrow">▸</span> Resueltas (${resueltas.length})
+      </div>
+      <div id="alertasResueltasList" style="display:none;">
+        ${resueltas.map(renderAlertaItem_).join('')}
+      </div>` : ''}
+  </div>`;
+}
+
+function renderAlertaItem_(a) {
+  const resuelta = a.estado !== 'abierta';
+  const venc = a.fechaVencimiento ? new Date(a.fechaVencimiento + 'T00:00:00') : null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const vencida = venc && !resuelta && venc < hoy;
+  return `
+    <div class="alerta-item urgencia-${a.urgencia}${resuelta ? ' resuelta' : ''}">
+      <div>
+        <div class="alerta-texto">${escapeHtml(a.texto)}</div>
+        <div class="alerta-meta">${a.creadaPor ? escapeHtml(a.creadaPor) + ' · ' : ''}${escapeHtml(a.fecha || '')}${a.fechaVencimiento ? ` · vence ${escapeHtml(a.fechaVencimiento)}${vencida ? ' ⚠ VENCIDA' : ''}` : ''}${resuelta ? ` · resuelta por ${escapeHtml(a.resueltaPor||'')}` : ''}</div>
+      </div>
+      ${!resuelta ? `<button type="button" class="btn-secondary" onclick="resolverAlerta('${a.id}')">✓ Resolver</button>` : ''}
+    </div>`;
+}
+
+function abrirModalNuevaAlerta(obraId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>🚩 Nueva alerta</h2>
+      <div class="field">
+        <label>¿Qué falta o está trabado?</label>
+        <textarea id="alertaTextoInput" rows="3" placeholder="Ej: Falta confirmar medida del zócalo con el cliente" autofocus></textarea>
+      </div>
+      <div class="field">
+        <label>Urgencia</label>
+        <select id="alertaUrgenciaInput">
+          <option value="baja">🟢 Baja</option>
+          <option value="media" selected>🟡 Media</option>
+          <option value="alta">🔴 Alta</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Vencimiento (opcional)</label>
+        <input type="date" id="alertaVencimientoInput">
+      </div>
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+        <button class="btn-primary btn-block" onclick="guardarNuevaAlerta('${obraId}')">Crear alerta</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('alertaTextoInput').focus();
+}
+
+async function guardarNuevaAlerta(obraId) {
+  const texto = document.getElementById('alertaTextoInput').value.trim();
+  if (!texto) return;
+  const urgencia = document.getElementById('alertaUrgenciaInput').value;
+  const fechaVencimiento = document.getElementById('alertaVencimientoInput').value;
+  const res = await API.alertaCrear(obraId, texto, urgencia, fechaVencimiento, currentUser.token);
+  if (res.ok) {
+    document.querySelector('.modal-overlay').remove();
+    reloadObra();
+  } else {
+    alert('No se pudo crear la alerta: ' + (res.error || ''));
+  }
+}
+
+async function resolverAlerta(id) {
+  const res = await API.alertaResolver(id, currentUser.token);
+  if (res.ok) reloadObra();
+  else alert('No se pudo resolver: ' + (res.error || ''));
+}
+
 function formatDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -518,6 +623,7 @@ function renderObraView() {
     </div>
     ${o.estado === 'cerrada' ? `<div class="obra-finalizada-banner">✓ Esta obra está marcada como terminada y archivada.</div>` : ''}
     ${puedeMarcarObraIniciada(o) ? `<div class="obra-iniciar-banner no-print"><span>📦 Compras validadas — falta confirmar si los colocadores ya arrancaron en el sitio.</span><button type="button" class="btn-iniciar-obra" onclick="marcarObraIniciada()">🟢 Marcar obra como iniciada</button></div>` : ''}
+    ${renderAlertasPanel_(o)}
     ${renderStepperCompleto(o)}
     <div class="hito-tabs">
       ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''} ${hitoCompleto(o, h)?'completo':'pendiente'}" onclick="switchHito('${h}')">${HITO_LABELS[h]}</div>`).join('')}
