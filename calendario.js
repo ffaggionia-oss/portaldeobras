@@ -119,7 +119,7 @@ function renderCalendario_(items) {
             <td>${escapeHtml(x.cliente)}${x.direccion ? `<div class="small-note">${escapeHtml(x.direccion)}</div>` : ''}</td>
             <td><span class="estado-pill estado-${x.estado}">${typeof estadoLabel === 'function' ? estadoLabel(x.estado) : escapeHtml(x.estado)}</span></td>
             <td class="num">${x.mt2 ? escapeHtml(String(x.mt2)) : '—'}</td>
-            <td><input type="date" value="${escapeAttr(x.fechaEntrada || '')}" onchange="calSetFecha('${x.obraId}', this)" style="${x.fechaAproximada ? 'border-style:dashed;' : ''}"></td>
+            <td><input type="date" value="${escapeAttr(x.fechaEntrada || '')}" onblur="calSetFecha('${x.obraId}', this)" onkeydown="if(event.key==='Enter') this.blur()" style="${x.fechaAproximada ? 'border-style:dashed;' : ''}"></td>
             <td style="text-align:center;"><input type="checkbox" ${x.fechaAproximada ? 'checked' : ''} title="Fecha aproximada (sin confirmar)" onchange="calSetAproximada('${x.obraId}', this)"></td>
             <td>${calDiasBadge_(x.fechaEntrada, x.estado)}</td>
             <td>${calBanderaBadge_(x.banderas)}</td>
@@ -137,7 +137,9 @@ function renderCalendario_(items) {
 async function calSetFecha(obraId, input) {
   const fecha = input.value;
   const item = calItemsCache_.find(x => x.obraId === obraId);
-  const aproximada = item ? !!item.fechaAproximada : false;
+  if (!item) return;
+  const aproximada = !!item.fechaAproximada;
+  if (fecha === (item.fechaEntrada || '')) return; // sin cambios reales: no molestamos con un refresco
   input.disabled = true;
   try {
     const res = await API.setFechaEntrada(obraId, fecha, currentUser.token, aproximada);
