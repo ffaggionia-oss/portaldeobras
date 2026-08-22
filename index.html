@@ -555,6 +555,58 @@
     .topbar, .hito-tabs, .save-bar, .back-link, .btn-ghost, .no-print { display: none !important; }
     body { background: white; color: black; }
   }
+
+  /* ---- Banderitas / alertas (nuevo, 22/08/2026) ---- */
+  .bandera-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .3px;
+    padding: 3px 9px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+  }
+  .bandera-baja { background: #3a4a3e; color: var(--ok); }
+  .bandera-media { background: #4a4234; color: var(--warn); }
+  .bandera-alta { background: #4a2a28; color: var(--danger); }
+  .bandera-vencida { border: 1px solid var(--danger); }
+
+  .alertas-panel .section-title { position: relative; }
+  .alerta-item {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 10px; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px;
+    background: var(--panel-2); border-left: 4px solid var(--warn);
+  }
+  .alerta-item.urgencia-alta { border-left-color: var(--danger); }
+  .alerta-item.urgencia-baja { border-left-color: var(--ok); }
+  .alerta-item.resuelta { opacity: .55; }
+  .alerta-texto { font-size: 13.5px; }
+  .alerta-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--paper-dim); margin-top: 3px; }
+
+  /* ---- Calendario: vista mes ---- */
+  .cal-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+  .cal-toggle .btn-secondary.active { background: var(--rust); color: #fff; border-color: var(--rust); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-grid-head {
+    font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase;
+    color: var(--paper-dim); text-align: center; padding-bottom: 4px;
+  }
+  .cal-day {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    min-height: 88px; padding: 6px; font-size: 11px; overflow: hidden;
+  }
+  .cal-day.fuera-mes { opacity: .35; }
+  .cal-day.hoy { border-color: var(--rust-bright); border-width: 2px; }
+  .cal-day-num { font-family: var(--font-mono); font-size: 11px; color: var(--paper-dim); margin-bottom: 4px; }
+  .cal-evento {
+    display: block; font-size: 10.5px; padding: 2px 5px; border-radius: 4px;
+    background: var(--panel-2); margin-bottom: 3px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+  }
+  .cal-evento.aproximada { border: 1px dashed var(--paper-dim); background: transparent; }
+  .cal-evento.urgencia-alta { border-left: 3px solid var(--danger); }
+  .cal-evento.urgencia-media { border-left: 3px solid var(--warn); }
+  @media (max-width: 700px) {
+    .cal-grid { grid-template-columns: repeat(7, minmax(34px, 1fr)); gap: 3px; }
+    .cal-day { min-height: 60px; padding: 3px; font-size: 9.5px; }
+    .cal-evento { font-size: 8.5px; }
+  }
 </style>
 </head>
 <body>
