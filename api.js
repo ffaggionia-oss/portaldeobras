@@ -130,10 +130,10 @@ const API = {
     const res = await fetch(`${CONFIG.API_URL}?action=calendario&token=${encodeURIComponent(token)}`);
     return res.json();
   },
-  async setFechaEntrada(obraId, fecha, token) {
+  async setFechaEntrada(obraId, fecha, token, aproximada) {
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'setFechaEntrada', obraId, fecha, token })
+      body: JSON.stringify({ action: 'setFechaEntrada', obraId, fecha, aproximada: !!aproximada, token })
     });
     return res.json();
   },
@@ -229,6 +229,29 @@ API.enviarEntregable = async function(obraId, token) {
   const res = await fetch(CONFIG.API_URL, {
     method: 'POST',
     body: JSON.stringify({ action: 'enviarEntregable', obraId, token })
+  });
+  return res.json();
+};
+
+// ---- Alertas / banderitas ----
+API.alertaCrear = async function(obraId, texto, urgencia, fechaVencimiento, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'alertaCrear', obraId, texto, urgencia, fechaVencimiento, token })
+  });
+  return res.json();
+};
+API.alertaResolver = async function(id, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'alertaResolver', id, token })
+  });
+  return res.json();
+};
+API.alertaReabrir = async function(id, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'alertaReabrir', id, token })
   });
   return res.json();
 };
