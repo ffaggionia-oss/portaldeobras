@@ -255,3 +255,26 @@ API.alertaReabrir = async function(id, token) {
   });
   return res.json();
 };
+
+// ---- Portal del cliente ----
+API.clientePortalActivar = async function(obraId, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'clientePortalActivar', obraId, token })
+  });
+  return res.json();
+};
+API.clientePortalDesactivar = async function(obraId, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'clientePortalDesactivar', obraId, token })
+  });
+  return res.json();
+};
+API.clientePortalEnviarAviso = async function(obraId, nota, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'clientePortalEnviarAviso', obraId, nota, token })
+  });
+  return res.json();
+};
