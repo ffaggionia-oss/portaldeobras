@@ -529,6 +529,73 @@ async function resolverAlerta(id) {
   else alert('No se pudo resolver: ' + (res.error || ''));
 }
 
+// ============================================
+// 📨 PORTAL DEL CLIENTE — link público de seguimiento
+// ============================================
+async function abrirModalPortalCliente(obraId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>📨 Portal del cliente</h2>
+      <div class="small-note" style="margin-bottom:14px;">
+        Un link público de solo lectura donde el cliente ve el estado de su obra, fotos de avance y la fecha estimada — sin costos ni datos internos. Se puede reusar tantas veces como haga falta.
+      </div>
+      <div id="portalClienteBody"><div class="empty-state">Activando…</div></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const res = await API.clientePortalActivar(obraId, currentUser.token);
+  const body = document.getElementById('portalClienteBody');
+  if (!body) return; // el usuario cerró el modal mientras cargaba
+  if (!res.ok) {
+    body.innerHTML = `<div style="color:#b33;">No se pudo activar: ${escapeHtml(res.error || '')}</div>
+      <button class="btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>`;
+    return;
+  }
+  renderPortalClienteBody_(obraId, res.url, res.ultimoEnvio);
+}
+
+function renderPortalClienteBody_(obraId, url, ultimoEnvio) {
+  const body = document.getElementById('portalClienteBody');
+  if (!body) return;
+  body.innerHTML = `
+    <div class="field">
+      <label>Link para el cliente</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" readonly value="${escapeAttr(url)}" id="portalClienteUrlInput" style="flex:1;">
+        <button class="btn-secondary" onclick="copiarPortalClienteUrl()">Copiar</button>
+      </div>
+    </div>
+    ${ultimoEnvio ? `<div class="small-note" style="margin:8px 0;">Último aviso enviado: ${escapeHtml(ultimoEnvio)}</div>` : `<div class="small-note" style="margin:8px 0;">Todavía no le mandaste el link al cliente.</div>`}
+    <div class="field">
+      <label>Nota opcional para el mail de aviso</label>
+      <textarea id="portalClienteNota" rows="2" placeholder="Ej: llegó el material, arrancamos la semana que viene"></textarea>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+      <button class="btn-primary btn-block" onclick="enviarAvisoPortalCliente('${obraId}')">📨 Enviar aviso al cliente</button>
+    </div>
+  `;
+}
+
+function copiarPortalClienteUrl() {
+  const input = document.getElementById('portalClienteUrlInput');
+  input.select();
+  document.execCommand('copy');
+}
+
+async function enviarAvisoPortalCliente(obraId) {
+  const nota = document.getElementById('portalClienteNota').value.trim();
+  const res = await API.clientePortalEnviarAviso(obraId, nota, currentUser.token);
+  if (res.ok) {
+    alert('Aviso enviado a ' + res.email);
+    document.querySelector('.modal-overlay').remove();
+  } else {
+    alert('No se pudo enviar: ' + (res.error || ''));
+  }
+}
+
 function formatDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -617,6 +684,7 @@ function renderObraView() {
         ${o.tipo === 'postventa' ? '<span class="estado-pill">🔧 Postventa</span>' : ''}
         ${o.tipo === 'pedido_material' ? '<span class="estado-pill">📦 Pedido de material — NO es una obra</span>' : ''}
         ${o.tipo !== 'postventa' && o.tipo !== 'pedido_material' && currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="openNuevaPostventaModal('${o.obraId}','${escapeAttr(o.cliente)}')">🔧 Crear postventa</span>` : ''}
+        ${o.tipo !== 'postventa' && o.tipo !== 'pedido_material' && currentUser.rol === 'gerencia' ? `<span class="btn-ghost no-print" onclick="abrirModalPortalCliente('${o.obraId}')">📨 Portal del cliente</span>` : ''}
         ${currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="eliminarObraActual()">🗑 Eliminar obra</span>` : ''}
       </div>
       ${o.direccion ? `<div class="sub" style="margin-top:4px;">📍 ${o.mapsUrl ? `<a href="${escapeAttr(o.mapsUrl)}" target="_blank" rel="noopener">${escapeHtml(o.direccion)}</a>` : escapeHtml(o.direccion)}${o.telefono ? ` · ☎ ${escapeHtml(o.telefono)}` : ''}</div>` : ''}
