@@ -60,16 +60,17 @@ const HITO_LABELS = {
   h4: 'H4 · Financiero',
   h5: 'H5 · Remito final',
   fotos: 'Fotos y Planos',
+  visitas: '📋 Visitas',
   chat: '🏠 Inicio',
   pv: '🔧 Resumen postventa'
 };
-const HITO_ORDER = ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos'];
+const HITO_ORDER = ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos', 'visitas'];
 const PV_TABS = { colocador: ['pv', 'fotos'], resto: ['chat', 'pv', 'fotos'] };
 const ROLE_TABS = {
-  colocador:       ['h1', 'fotos'],
-  compras_admin:   ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos'],
-  project_manager: ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos'],
-  gerencia:        ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos']
+  colocador:       ['h1', 'fotos', 'visitas'],
+  compras_admin:   ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos', 'visitas'],
+  project_manager: ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos', 'visitas'],
+  gerencia:        ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos', 'visitas']
 };
 
 // ---- helpers ----
@@ -363,6 +364,7 @@ function hitoCompleto(obra, hito) {
   if (hito === 'h4') return !!(obra.h4 && obra.h4.completo);
   if (hito === 'h5') return !!(obra.h5 && obra.h5.length > 0);
   if (hito === 'fotos') return !!(obra.fotos && obra.fotos.length > 0);
+  if (hito === 'visitas') return !!(obra.visitas && obra.visitas.length > 0);
   if (hito === 'chat') return !!(obra.comentarios && obra.comentarios.length > 0);
   return false;
 }
@@ -727,6 +729,7 @@ function renderCurrentHito() {
   if (currentHito === 'h4') content.innerHTML = renderH4(currentObraData);
   if (currentHito === 'h5') content.innerHTML = renderH5(currentObraData);
   if (currentHito === 'fotos') content.innerHTML = renderFotos(currentObraData);
+  if (currentHito === 'visitas') content.innerHTML = renderVisitas(currentObraData);
   if (currentHito === 'chat') { content.innerHTML = renderChatObra(currentObraData); scrollChatAlFinal(); }
 }
 

@@ -217,6 +217,15 @@ API.obraComentar = async function(obraId, texto, token) {
   return res.json();
 };
 
+// ---- Visitas (resumen de audio/texto + fotos, notifica a colocador/fiscal/Nico/Sandra) ----
+API.agregarVisitaResumen = async function(obraId, texto, token) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'agregarVisitaResumen', obraId, texto, token })
+  });
+  return res.json();
+};
+
 API.facturaLeer = async function(filename, mimeType, base64Data, token) {
   const res = await fetch(CONFIG.API_URL, {
     method: 'POST',
