@@ -691,6 +691,10 @@ function renderObraView() {
       </div>
       ${o.direccion ? `<div class="sub" style="margin-top:4px;">📍 ${o.mapsUrl ? `<a href="${escapeAttr(o.mapsUrl)}" target="_blank" rel="noopener">${escapeHtml(o.direccion)}</a>` : escapeHtml(o.direccion)}${o.telefono ? ` · ☎ ${escapeHtml(o.telefono)}` : ''}</div>` : ''}
     </div>
+    ${o.obraGeneral ? `<div class="obra-grupo-banner">🏗️ Parte de: <a href="#" onclick="event.preventDefault();openObra('${o.obraGeneral.obraId}')"><b>${escapeHtml(o.obraGeneral.codigo || o.obraGeneral.obraId)}</b> — ${escapeHtml(o.obraGeneral.cliente || '')}</a>${o.grupoNombre ? ` · este tramo: <b>${escapeHtml(o.grupoNombre)}</b>` : ''}</div>` : ''}
+    ${(o.hijas && o.hijas.length) ? `<div class="obra-grupo-banner">🏗️ Esta es la obra general — se desdobla en ${o.hijas.length} obra${o.hijas.length===1?'':'s'}:
+      ${o.hijas.map(h => `<div style="margin-top:4px;"><a href="#" onclick="event.preventDefault();openObra('${h.obraId}')"><b>${escapeHtml(h.codigo || h.obraId)}</b></a> — ${escapeHtml(h.grupoNombre || '')} <span class="estado-pill estado-${h.estado}" style="font-size:10px;">${estadoLabel(h.estado)}</span></div>`).join('')}
+    </div>` : ''}
     ${o.estado === 'cerrada' ? `<div class="obra-finalizada-banner">✓ Esta obra está marcada como terminada y archivada.</div>` : ''}
     ${puedeMarcarObraIniciada(o) ? `<div class="obra-iniciar-banner no-print"><span>📦 Compras validadas — falta confirmar si los colocadores ya arrancaron en el sitio.</span><button type="button" class="btn-iniciar-obra" onclick="marcarObraIniciada()">🟢 Marcar obra como iniciada</button></div>` : ''}
     ${renderAlertasPanel_(o)}
