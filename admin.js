@@ -90,12 +90,13 @@ function renderAdminContent() {
   const html = ADMIN_TABLAS.map(def => renderTablaAdmin(def)).join('');
   document.getElementById('adminContent').innerHTML = `
     <div class="small-note" style="margin-bottom:14px;">
-      Los cambios acá impactan obras nuevas y obras que todavía no llegaron a H3 (costos) o H4 (financiero).
-      Las obras que ya tenían un costo o margen guardado no se recalculan solas — quedan con el valor histórico.
+      <b>Esta pantalla es la fuente de verdad de precios y consumos de instalación</b> — editá directo acá abajo (consumo por m², costo por unidad, etc.), se guarda al toque y ya lo usa toda cotización y obra nueva. No hace falta ningún Excel aparte.
+      Los cambios impactan obras nuevas y obras que todavía no llegaron a H3 (costos) o H4 (financiero) — las que ya tenían un costo o margen guardado no se recalculan solas, quedan con el valor histórico (así una compra ya aprobada no cambia de precio sola).
     </div>
-    <div class="section">
-      <div class="section-title">🔄 Actualizar desde tu Excel maestro</div>
-      <div class="small-note">El Excel manda: editás la hoja de materiales y mano de obra directo en Google Sheets — nada de subir/bajar archivos ni tocar el portal para dar de alta o quitar un producto. "Leer del Excel en vivo" trae los datos actuales de esa hoja (cache de hasta 10 min; "Forzar relectura" lo salta). Compara contra el Maestro: agrega los ítems que falten, actualiza consumos y precios de los que ya existen, y te muestra el detalle ANTES de guardar nada. Los ítems que están en el Maestro pero no en el Excel no se tocan — solo se listan para que los revises.</div>
+    ${html}
+    <div class="section" style="margin-top:18px;">
+      <div class="section-title">🔄 Comparar contra un Excel (opcional)</div>
+      <div class="small-note">Ya no hace falta para el uso normal — las tablas de arriba son la fuente de verdad. Dejalo para el caso puntual de que quieras chequear o importar un Excel viejo: "Leer del Excel en vivo" trae los datos actuales de esa hoja (cache de hasta 10 min; "Forzar relectura" lo salta). Compara contra el Maestro y te muestra el detalle ANTES de guardar nada — nunca pisa ni desactiva algo en silencio.</div>
       <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <button type="button" class="btn-primary" onclick="leerPlanillaH3EnVivo_(false)">🔄 Leer del Excel en vivo</button>
         <button type="button" class="btn-ghost" onclick="leerPlanillaH3EnVivo_(true)">Forzar relectura (saltea el cache)</button>
@@ -109,9 +110,7 @@ function renderAdminContent() {
         </div>
       </details>
       <div id="sync_planilla_out" style="margin-top:10px;"></div>
-    </div>
-    ${html}
-  `;
+    </div>`;
   ADMIN_TABLAS.forEach(def => cargarLogsMaestro(def.tabla));
   recalcularSugeridos();
 }
