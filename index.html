@@ -618,6 +618,23 @@
     .cal-day { min-height: 60px; padding: 3px; font-size: 9.5px; }
     .cal-evento { font-size: 8.5px; }
   }
+  /* ---- Feedback ---- */
+  .fb-form { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 18px; }
+  .fb-form textarea { width: 100%; box-sizing: border-box; background: var(--panel-2); color: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-family: var(--font-body); font-size: 14px; }
+  .fb-form-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .fb-form-row .btn-primary { margin-left: auto; }
+  .fb-prio { cursor: pointer; font-size: 14px; }
+  .fb-item { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+  .fb-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--paper-dim); margin-bottom: 6px; }
+  .fb-estado { border: 1px solid var(--line); border-radius: 10px; padding: 1px 8px; }
+  .fb-est-esperando_aprobacion, .fb-est-objetado { border-color: var(--warn); color: var(--warn); }
+  .fb-est-aprobado, .fb-est-resuelto { border-color: var(--ok); color: var(--ok); }
+  .fb-mio { background: var(--rust); color: #fff; border-radius: 10px; padding: 1px 8px; }
+  .fb-fecha { margin-left: auto; font-family: var(--font-mono); }
+  .fb-texto { font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+  .fb-cerrado .fb-texto { text-decoration: line-through; color: var(--paper-dim); }
+  .fb-resolucion { margin-top: 8px; font-size: 13px; color: var(--ok); }
+  .fb-acciones { margin-top: 8px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -647,6 +664,7 @@
 <script src="admin.js"></script>
 <script src="calendario.js"></script>
 <script src="postventa.js"></script>
+<script src="feedback.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

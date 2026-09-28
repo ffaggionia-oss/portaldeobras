@@ -176,6 +176,7 @@ function renderTopbarUser() {
   el.innerHTML = `
     <span>${escapeHtml(currentUser.nombre)} · ${escapeHtml(ROLE_LABELS[currentUser.rol] || currentUser.rol)}</span>
     ${currentUser.rol === 'gerencia' ? `<span class="btn-ghost" style="margin-left:8px;" onclick="abrirAdminMaestro()">⚙ Precios y Materiales</span>` : ''}
+    <span class="btn-ghost" style="margin-left:8px;" onclick="abrirFeedback()">💬 Feedback</span>
     <span class="btn-ghost" style="margin-left:8px;" onclick="cerrarSesion()">Salir</span>
   `;
 }
