@@ -27,6 +27,10 @@ API.feedbackObjetar = async function(id, texto, token) {
   return res.json();
 };
 
+// Filtro del tablero: 'todos' | 'mios'. Se mantiene mientras dura la sesión.
+let fbFiltro_ = 'todos';
+let fbItemsCache_ = [];
+
 async function abrirFeedback() {
   if (hayCambiosSinGuardar() && !confirm('Tenés cambios SIN GUARDAR en esta obra. Si salís se descartan. ¿Salir igual?')) return;
   h3Dirty = false; hitoDirty = { h1: false, h2: false };
@@ -47,6 +51,7 @@ async function abrirFeedback() {
         <button class="btn-primary" id="fbEnviarBtn" onclick="enviarFeedback()">Enviar</button>
       </div>
     </div>
+    <div class="filtro-tipo-tabs" id="fbFiltros" style="display:flex; gap:6px; margin:2px 0 14px; flex-wrap:wrap;"></div>
     <div id="fbLista"><div class="empty-state">Cargando…</div></div>
   `;
   await cargarFeedbackLista_();
@@ -57,12 +62,41 @@ async function cargarFeedbackLista_() {
   try {
     const res = await API.feedbackList(currentUser.token);
     if (!res.ok) throw new Error(res.error);
-    cont.innerHTML = res.items.length
-      ? res.items.map(renderFeedbackItem_).join('')
-      : '<div class="empty-state">Todavía no hay pedidos. ¡Sé el primero!</div>';
+    fbItemsCache_ = res.items;
+    renderFeedbackLista_();
   } catch (err) {
     cont.innerHTML = `<div class="empty-state">No pude cargar el feedback: ${escapeHtml(String(err.message || err))}</div>`;
   }
+}
+
+function setFeedbackFiltro(f) {
+  fbFiltro_ = f;
+  renderFeedbackLista_();
+}
+
+function renderFeedbackLista_() {
+  const mios = fbItemsCache_.filter(it => it.mio);
+  document.getElementById('fbFiltros').innerHTML = `
+    <button class="btn-secondary ${fbFiltro_==='todos'?'activo':''}" onclick="setFeedbackFiltro('todos')">Todos (${fbItemsCache_.length})</button>
+    <button class="btn-secondary ${fbFiltro_==='mios'?'activo':''}" onclick="setFeedbackFiltro('mios')">Mis pedidos (${mios.length})</button>`;
+  const items = fbFiltro_ === 'mios' ? mios : fbItemsCache_;
+  document.getElementById('fbLista').innerHTML = items.length
+    ? items.map(renderFeedbackItem_).join('')
+    : `<div class="empty-state">${fbFiltro_ === 'mios' ? 'Todavía no cargaste ningún pedido.' : 'Todavía no hay pedidos. ¡Sé el primero!'}</div>`;
+}
+
+// Novedades: lo que se fue haciendo con el pedido, más nuevo arriba. Se
+// muestran las 3 últimas; el resto queda detrás de "ver todas".
+function renderFeedbackNovedades_(it) {
+  const novs = (it.novedades || []).slice().reverse();
+  if (!novs.length) return '';
+  const fila = n => `<div class="fb-novedad"><span class="fb-novedad-fecha">${formatDate(n.fecha)}</span> ${escapeHtml(n.texto)}</div>`;
+  const extra = novs.slice(3);
+  return `<div class="fb-novedades">
+      <div class="fb-novedades-t">Novedades</div>
+      ${novs.slice(0, 3).map(fila).join('')}
+      ${extra.length ? `<details><summary>ver ${extra.length} más</summary>${extra.map(fila).join('')}</details>` : ''}
+    </div>`;
 }
 
 function renderFeedbackItem_(it) {
@@ -78,6 +112,7 @@ function renderFeedbackItem_(it) {
       </div>
       <div class="fb-texto">${texto}</div>
       ${it.mio && it.textoOriginal && it.textoOriginal !== it.texto ? `<div class="small-note">Lo que escribiste (solo lo ves vos): ${escapeHtml(it.textoOriginal)}</div>` : ''}
+      ${renderFeedbackNovedades_(it)}
       ${cerrado && it.resolucion ? `<div class="fb-resolucion">${it.estado === 'resuelto' ? 'Se resolvió con' : 'Motivo'}: ${escapeHtml(it.resolucion)}</div>` : ''}
       ${cerrado ? `<div class="fb-acciones"><span class="btn-ghost" onclick="objetarFeedback('${escapeAttr(it.id)}')">No quedó bien → objetar</span></div>` : ''}
     </div>`;
