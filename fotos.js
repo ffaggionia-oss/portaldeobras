@@ -75,7 +75,7 @@ function renderFotos(obra) {
             <a href="${escapeAttr(f.url)}" target="_blank" title="${esVideo ? 'Ver video en Drive' : 'Abrir en Drive'}">${preview}</a>
             <div style="padding:8px; font-size:12px;">
               <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(f.name)}</div>
-              <div class="small-note">${escapeHtml(f.uploadedBy||'')} · ${formatDate(f.uploadedAt)}</div>
+              <div class="small-note">${(f.interno || f.origen === 'cotizacion' || f.origen === 'aprobacion') ? '🔒 interna (' + (f.origen === 'aprobacion' ? 'aprobación' : 'cotización') + ') · ' : ''}${escapeHtml(f.uploadedBy||'')} · ${formatDate(f.uploadedAt)}</div>
               <button type="button" class="btn-ghost" style="padding:4px 0;" onclick="borrarFoto('${escapeAttr(f.url)}')">Eliminar</button>
             </div>
           </div>`;

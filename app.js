@@ -687,7 +687,7 @@ function renderObraView() {
         ${o.tipo === 'postventa' ? '<span class="estado-pill">🔧 Postventa</span>' : ''}
         ${o.tipo === 'pedido_material' ? '<span class="estado-pill">📦 Pedido de material — NO es una obra</span>' : ''}
         ${o.tipo !== 'postventa' && o.tipo !== 'pedido_material' && currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="openNuevaPostventaModal('${o.obraId}','${escapeAttr(o.cliente)}')">🔧 Crear postventa</span>` : ''}
-        ${o.tipo !== 'postventa' && o.tipo !== 'pedido_material' && currentUser.rol === 'gerencia' ? `<span class="btn-ghost no-print" onclick="abrirModalPortalCliente('${o.obraId}')">📨 Portal del cliente</span>` : ''}
+        ${/* ★ 2026-10-01: Portal del cliente SUSPENDIDO (todavía es un proyecto, ver TAREAS.md del backend) — botón oculto; el backend también lo rechaza. */ ''}
         ${currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="eliminarObraActual()">🗑 Eliminar obra</span>` : ''}
       </div>
       ${o.direccion ? `<div class="sub" style="margin-top:4px;">📍 ${o.mapsUrl ? `<a href="${escapeAttr(o.mapsUrl)}" target="_blank" rel="noopener">${escapeHtml(o.direccion)}</a>` : escapeHtml(o.direccion)}${o.telefono ? ` · ☎ ${escapeHtml(o.telefono)}` : ''}</div>` : ''}
