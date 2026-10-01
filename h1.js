@@ -178,6 +178,12 @@ function renderH1(obra) {
       <b>H1 = DIAGNÓSTICO del fiscal de obra.</b> Relevar qué hay en la obra, contrastarlo con <b>lo que se vendió</b>
       y detectar si hay que <b>recotizar</b>. Lo que se defina (sistema, planos, entregable al colocador) va después, en H2.
     </div>
+    ${String(d.informePrevio || '').trim() ? `<div class="section" style="border-left:4px solid var(--gold, #C9A227);">
+      <div class="section-title">📝 Informe previo <span class="small-note" style="font-weight:400;">— escrito en la cotización ${escapeHtml((d._clienteFicha && d._clienteFicha.origenCot) || '')} antes de aprobarla · sólo lectura</span></div>
+      <div style="white-space:pre-wrap;line-height:1.45;">${escapeHtml(d.informePrevio)}</div>
+      <div class="small-note" style="margin-top:8px;">Las fotos que se cargaron en la cotización están en la pestaña Fotos.</div>
+    </div>` : ''}
+
     <div class="section">
       <div class="section-title">1 · Datos generales</div>
       <div class="small-note" style="margin-bottom:10px;">El H1 es el diagnóstico del fiscal de obra: va a la obra, releva qué hay que hacer y lo contrasta con lo que se vendió (para recotizar si hace falta). La ficha del cliente se carga UNA sola vez acá (o llega precargada de la cotización); los demás hitos no la repiten.</div>
@@ -427,6 +433,7 @@ function collectH1() {
     saunaNotas: valS('h1_saunaNotas', prev.saunaNotas || ''),
     problemasComunes,
     notasGenerales: valS('h1_notasGenerales', prev.notasGenerales),
+    informePrevio: prev.informePrevio || '', // viene de la cotización; no se edita en el Portal
     firmaFiscal: valS('h1_firmaFiscal', prev.firmaFiscal), fechaEntrega: valS('h1_fechaEntrega', prev.fechaEntrega),
     _completo: chkS('h1_completo', prev._completo)
   };
