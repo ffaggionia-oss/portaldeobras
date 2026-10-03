@@ -1,5 +1,7 @@
 // ============================================
 // ⚙ PRECIOS Y MATERIALES — panel de administración del Maestro de Precios
+// ★ 2026-10-03: SÓLO LECTURA — el Excel H3 Calculador manda (ver
+// renderAdminContent). Lo de abajo describe cómo era la edición acá.
 // Sólo Gerencia. Acá se editan tipos de colocación, materiales, periféricos,
 // escaladores, reductores y segmentos de margen SIN tocar código ni GitHub.
 // Cada tabla se guarda por separado; nunca se borra una fila del Sheet: se
@@ -86,33 +88,63 @@ async function renderAdminMaestro() {
   }
 }
 
+// ★ 2026-10-03: decisión de Franco — el Excel "H3 Calculador" MANDA. Esta
+// pantalla queda de SÓLO LECTURA para ver lo que está vigente y su historial;
+// el backend rechaza saveMaestro para estas tablas. Después de editar el
+// Excel, "🔄 Traer del Excel ahora" lo aplica al instante (si no, la
+// sincronización automática lo trae en ≤15 min).
+const PLANILLA_H3_URL = 'https://docs.google.com/spreadsheets/d/1k45MpAeiarGRhOLUfoOaHOLc9sEhlCtzVWjQNTu-MrE/edit';
 function renderAdminContent() {
   const html = ADMIN_TABLAS.map(def => renderTablaAdmin(def)).join('');
   document.getElementById('adminContent').innerHTML = `
-    <div class="small-note" style="margin-bottom:14px;">
-      <b>Esta pantalla es la fuente de verdad de precios y consumos de instalación</b> — editá directo acá abajo (consumo por m², costo por unidad, etc.), se guarda al toque y ya lo usa toda cotización y obra nueva. No hace falta ningún Excel aparte.
-      Los cambios impactan obras nuevas y obras que todavía no llegaron a H3 (costos) o H4 (financiero) — las que ya tenían un costo o margen guardado no se recalculan solas, quedan con el valor histórico (así una compra ya aprobada no cambia de precio sola).
-    </div>
-    ${html}
-    <div class="section" style="margin-top:18px;">
-      <div class="section-title">🔄 Comparar contra un Excel (opcional)</div>
-      <div class="small-note">Ya no hace falta para el uso normal — las tablas de arriba son la fuente de verdad. Dejalo para el caso puntual de que quieras chequear o importar un Excel viejo: "Leer del Excel en vivo" trae los datos actuales de esa hoja (cache de hasta 10 min; "Forzar relectura" lo salta). Compara contra el Maestro y te muestra el detalle ANTES de guardar nada — nunca pisa ni desactiva algo en silencio.</div>
+    <div class="section" style="border-left:4px solid var(--gold, #C9A227);">
+      <div class="section-title">📗 Los precios se editan en el Excel</div>
+      <div class="small-note">Tipos de colocación, materiales, periféricos, escaladores, reductores y segmentos se cargan en el <b>Excel H3 Calculador</b> (primera pestaña). Lo de abajo es lo que está vigente hoy en el cotizador y el Portal — sólo lectura.
+      La sincronización lo trae sola cada 15 minutos; si querés verlo ya, tocá <b>Traer del Excel ahora</b>. Si el Excel viene raro (una tabla vacía o con menos de la mitad de filas), no se toca nada y te llega un mail.</div>
       <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <button type="button" class="btn-primary" onclick="leerPlanillaH3EnVivo_(false)">🔄 Leer del Excel en vivo</button>
-        <button type="button" class="btn-ghost" onclick="leerPlanillaH3EnVivo_(true)">Forzar relectura (saltea el cache)</button>
-        <button type="button" class="btn-primary" onclick="previsualizarSyncPlanilla()">Comparar Maestro vs Excel</button>
+        <a class="btn-ghost" href="${PLANILLA_H3_URL}" target="_blank" rel="noopener">📗 Abrir el Excel</a>
+        <button type="button" class="btn-primary" id="btnTraerExcel" onclick="traerDelExcelAhora()">🔄 Traer del Excel ahora</button>
       </div>
-      <div class="small-note" id="sync_planilla_status" style="margin-top:8px;">${PLANILLA_META ? '✓ ' + (PLANILLA_META.origen === 'vivo' ? 'Leído en vivo de la hoja "' + escapeHtml(PLANILLA_META.hoja) + '"' : 'Último archivo leído: ' + escapeHtml(PLANILLA_META.archivo)) + ' (' + PLANILLA_META.leidoEn.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ')' : 'Todavía no leíste el Excel en esta sesión.'}</div>
-      <details style="margin-top:10px;">
-        <summary style="cursor:pointer; font-size:12px; color:var(--muted, #888);">O subir el .xlsx a mano (por si no podés acceder al Google Sheet)</summary>
-        <div style="margin-top:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <input type="file" id="sync_planilla_file" accept=".xlsx,.xls" onchange="manejarArchivoExcelPlanilla_(this)">
-        </div>
-      </details>
-      <div id="sync_planilla_out" style="margin-top:10px;"></div>
-    </div>`;
+      <div id="traer_excel_out" class="small-note" style="margin-top:10px;"></div>
+      <div class="small-note" style="margin-top:8px;">Los cambios impactan obras nuevas y obras que todavía no llegaron a H3 (costos) o H4 (financiero) — las que ya tenían un costo o margen guardado conservan el valor histórico.</div>
+    </div>
+    ${html}`;
   ADMIN_TABLAS.forEach(def => cargarLogsMaestro(def.tabla));
   recalcularSugeridos();
+  bloquearEdicionAdmin_();
+}
+
+// Sólo lectura: se deshabilitan los campos y se ocultan los botones de
+// edición (Agregar, Guardar, Usar, Quitar, parámetros del equipo).
+function bloquearEdicionAdmin_() {
+  const cont = document.getElementById('adminContent');
+  if (!cont) return;
+  cont.querySelectorAll('.section input, .section select, .section textarea').forEach(el => { el.disabled = true; });
+  cont.querySelectorAll('.add-row-btn, button[onclick^="guardarTablaAdmin"], button[onclick^="usarSugerido"], button[onclick^="quitarFilaAdmin"], button[onclick^="guardarParametrosAdmin"]').forEach(el => { el.style.display = 'none'; });
+}
+
+async function traerDelExcelAhora() {
+  const btn = document.getElementById('btnTraerExcel');
+  const out = document.getElementById('traer_excel_out');
+  btn.disabled = true; btn.textContent = 'Trayendo del Excel…';
+  out.textContent = '';
+  try {
+    const res = await API.sincronizarExcelAhora(currentUser.token);
+    if (!res.ok) throw new Error(res.error || 'Error');
+    const etiquetas = {}; ADMIN_TABLAS.forEach(d => { etiquetas[d.tabla] = d.titulo.replace(/^⚠\s*/, '').split(' (')[0].split(' — ')[0]; });
+    const partes = [];
+    Object.keys(res.resumen || {}).forEach(t => {
+      const r = res.resumen[t];
+      if (r.frenada) partes.push('<div style="color:var(--warn, #c77700);">⚠ <b>' + escapeHtml(etiquetas[t] || t) + '</b>: no se tocó — ' + escapeHtml(r.frenada) + '</div>');
+      else if (r.cambios && r.cambios.length) partes.push('<div>✓ <b>' + escapeHtml(etiquetas[t] || t) + '</b>: ' + r.cambios.map(escapeHtml).join(' · ') + '</div>');
+    });
+    await renderAdminMaestro();
+    const out2 = document.getElementById('traer_excel_out');
+    if (out2) out2.innerHTML = partes.length ? partes.join('') : '✓ El Maestro ya estaba igual que el Excel — no había nada para traer.';
+  } catch (err) {
+    out.textContent = '⚠ ' + err.message;
+    btn.disabled = false; btn.textContent = '🔄 Traer del Excel ahora';
+  }
 }
 
 // ---- Bloque de justificación de mano de obra (arriba de la tabla Tipos) ----

@@ -154,6 +154,15 @@ const API = {
     return res.json();
   },
 
+  // Corre ya la sincronización Excel H3 Calculador → Maestro (Sólo Gerencia).
+  async sincronizarExcelAhora(token) {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'sincronizarExcelAhora', token })
+    });
+    return res.json();
+  },
+
   async saveMaestro(tabla, items, token) {
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',
