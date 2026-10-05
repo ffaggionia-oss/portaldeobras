@@ -691,6 +691,7 @@ function renderObraView() {
         ${currentUser.rol !== 'colocador' ? `<span class="btn-ghost no-print" onclick="eliminarObraActual()">🗑 Eliminar obra</span>` : ''}
       </div>
       ${o.direccion ? `<div class="sub" style="margin-top:4px;">📍 ${o.mapsUrl ? `<a href="${escapeAttr(o.mapsUrl)}" target="_blank" rel="noopener">${escapeHtml(o.direccion)}</a>` : escapeHtml(o.direccion)}${o.telefono ? ` · ☎ ${escapeHtml(o.telefono)}` : ''}</div>` : ''}
+      ${(o.materiales && o.materiales.length) ? `<div class="sub" style="margin-top:4px;">🪵 Material: ${o.materiales.map(escapeHtml).join(' · ')}</div>` : ''}
     </div>
     ${o.obraGeneral ? `<div class="obra-grupo-banner">🏗️ Parte de: <a href="#" onclick="event.preventDefault();openObra('${o.obraGeneral.obraId}')"><b>${escapeHtml(o.obraGeneral.codigo || o.obraGeneral.obraId)}</b> — ${escapeHtml(o.obraGeneral.cliente || '')}</a>${o.grupoNombre ? ` · este tramo: <b>${escapeHtml(o.grupoNombre)}</b>` : ''}</div>` : ''}
     ${(o.hijas && o.hijas.length) ? `<div class="obra-grupo-banner">🏗️ Esta es la obra general — se desdobla en ${o.hijas.length} obra${o.hijas.length===1?'':'s'}:
