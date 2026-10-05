@@ -325,6 +325,7 @@ function renderObraCard(o) {
       <div>
         <div class="nombre">${o.tipo === 'postventa' ? '🔧 ' : ''}${esPedido ? '📦 ' : ''}${escapeHtml(o.cliente)} ${o.codigo ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--paper-dim);">· ${escapeHtml(o.codigo)}</span>` : ''}</div>
         <div class="sub">Actualizado ${formatDate(o.fechaActualizacion)}${esPedido ? ' · Pedido de material — sin instalación' : ''}</div>
+        ${esPedido ? '' : `<div class="sub">${o.colocador ? '👷 ' + escapeHtml(o.colocador) : '<b style="color:var(--danger);">⚠ FALTA ASIGNAR</b>'}</div>`}
         ${(o.tipo === 'postventa' || esPedido) ? '' : renderProgresoDots(o.progreso)}
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
