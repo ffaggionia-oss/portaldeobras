@@ -1,0 +1,10 @@
+# Nunca subir credenciales ni archivos locales
+.env
+.env.*
+credentials*.json
+*.pem
+*.key
+.claude/settings.local.json
+.claude/*.lock
+.DS_Store
+node_modules/
