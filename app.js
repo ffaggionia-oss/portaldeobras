@@ -68,7 +68,7 @@ const HITO_ORDER = ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos', 'visitas'];
 const PV_TABS = { colocador: ['pv', 'fotos'], resto: ['chat', 'pv', 'fotos'] };
 const ROLE_TABS = {
   colocador:       ['h1', 'fotos', 'visitas'],
-  compras_admin:   ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos', 'visitas'],
+  compras_admin:   ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos', 'visitas'], // h4: solo 🧾 Facturas (ver renderH4)
   project_manager: ['chat', 'h1', 'h2', 'h3', 'h5', 'fotos', 'visitas'],
   gerencia:        ['chat', 'h1', 'h2', 'h3', 'h4', 'h5', 'fotos', 'visitas']
 };
@@ -404,7 +404,8 @@ async function marcarObraIniciada() {
 // Secuencia de hitos "de progreso" (excluye Fotos, que no es un hito secuencial),
 // filtrada según lo que puede ver el rol actual.
 function pasosProgreso() {
-  return HITO_ORDER.filter(h => h !== 'fotos' && h !== 'chat' && (ROLE_TABS[currentUser.rol] || []).indexOf(h) !== -1);
+  // H4 cuenta como paso solo para Gerencia: Compras/Admin entra a H4 únicamente por las facturas.
+  return HITO_ORDER.filter(h => h !== 'fotos' && h !== 'chat' && (h !== 'h4' || currentUser.rol === 'gerencia') && (ROLE_TABS[currentUser.rol] || []).indexOf(h) !== -1);
 }
 
 // Stepper compacto: usado en cada tarjeta de la lista de obras.
@@ -701,7 +702,7 @@ function renderObraView() {
     ${renderAlertasPanel_(o)}
     ${renderStepperCompleto(o)}
     <div class="hito-tabs">
-      ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''} ${hitoCompleto(o, h)?'completo':'pendiente'}" onclick="switchHito('${h}')">${HITO_LABELS[h]}</div>`).join('')}
+      ${tabs.map(h => `<div class="hito-tab ${currentHito===h?'active':''} ${hitoCompleto(o, h)?'completo':'pendiente'}" onclick="switchHito('${h}')">${h === 'h4' && currentUser.rol !== 'gerencia' ? '🧾 Facturas' : HITO_LABELS[h]}</div>`).join('')}
     </div>
     <div id="hito-content"></div>
     <div class="section no-print">
@@ -987,8 +988,9 @@ function renderChatObra(obra) {
   const accesos = [];
   const rt = ROLE_TABS[currentUser.rol] || [];
   if (rt.indexOf('h3') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h3\')">🛒 Compras</span>');
-  if (rt.indexOf('h4') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h4\')">💰 Financiero</span>');
-  if (rt.indexOf('h5') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h5\')">🧾 Facturas' + (nFact ? ' (' + nFact + ' · USD ' + totFact.toFixed(0) + ')' : '') + '</span>');
+  if (rt.indexOf('h4') !== -1 && currentUser.rol === 'gerencia') accesos.push('<span class="btn-ghost" onclick="switchHito(\'h4\')">💰 Financiero</span>');
+  // Las facturas se cargan en H4 (sección 🧾), no en H5.
+  if (rt.indexOf('h4') !== -1) accesos.push('<span class="btn-ghost" onclick="switchHito(\'h4\')">🧾 Facturas' + (nFact ? ' (' + nFact + ' · USD ' + totFact.toFixed(0) + ')' : '') + '</span>');
 
   // Tira de fotos y planos: los últimos, con acceso a la galería completa
   const fotos = (obra.fotos || []).slice(-8).reverse();

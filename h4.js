@@ -9,6 +9,9 @@
 // ============================================
 
 function renderH4(obra) {
+  // ★ 2026-10-07: Compras/Admin (Sandra) entra a H4 solo para cargar
+  // facturas; el backend no le manda obra.h4 (márgenes) ni planVsReal.
+  if (currentUser && currentUser.rol !== 'gerencia') return renderFacturasH4(obra);
   const f = obra.h4;
   if (!f) {
     return `<div class="section"><div class="empty-state">Todavía no hay datos de H3 cargados para calcular el financiero de esta obra.</div></div>`;
@@ -175,7 +178,7 @@ async function setSegmentoH4(segmentoId) {
 
 
 // ============================================
-// 🧾 FACTURAS DE COMPRA — se cargan acá, en Financiero (solo Gerencia).
+// 🧾 FACTURAS DE COMPRA — se cargan acá, en Financiero (Gerencia y Compras/Admin).
 // Al elegir el archivo, el OCR lee la factura y precarga proveedor,
 // monto, fecha y concepto: Nicolás solo confirma. Cada factura alimenta
 // el comparativo presupuesto vs real de abajo.
